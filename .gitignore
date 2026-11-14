@@ -12,3 +12,8 @@ build/
 .coverage
 htmlcov/
 .DS_Store
+venv/
+node_modules/
+*.pyc
+.benchmarks/
+.env
