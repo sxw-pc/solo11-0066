@@ -1,0 +1,7 @@
+date,region,visits,orders
+2025-01-06,region_alpha,120,18
+2025-01-07,region_alpha,125,19
+2025-01-06,region_beta,90,14
+2025-01-07,region_beta,92,15
+2025-01-06,region_gamma,70,11
+2025-01-07,region_gamma,72,12

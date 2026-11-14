@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}漂移归因台{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="{{ url_for('index') }}">
+      <span class="brand-mark">DA</span>
+      <span>漂移归因台<small>Drift Attribution Console</small></span>
+    </a>
+    <nav aria-label="主导航">
+      <a href="{{ url_for('index') }}" class="{{ 'active' if active == 'runs' else '' }}">运行台账</a>
+      <span class="offline-badge">本地离线</span>
+    </nav>
+  </header>
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer">
+    <span>漂移归因台 · 只读本地台账</span>
+    <span>所有业务值均为虚构 fixture · 不发起任何外部请求</span>
+  </footer>
+</body>
+</html>

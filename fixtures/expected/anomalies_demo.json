@@ -1,0 +1,262 @@
+{
+  "anomaly_count": 4,
+  "raw_event_count": 4,
+  "anomalies": [
+    {
+      "date": "2025-03-27",
+      "metric": "sessions",
+      "dimension_name": "channel",
+      "dimension_value": "channel_web",
+      "severity": "high",
+      "detectors": [
+        "changepoint"
+      ],
+      "rule_names": [
+        "sessions_level_shift_web"
+      ],
+      "event_count": 1,
+      "attribution_windows": {
+        "baseline_end": "2025-03-20",
+        "baseline_periods": 7,
+        "baseline_start": "2025-03-14",
+        "comparison_end": "2025-03-27",
+        "comparison_periods": 7,
+        "comparison_start": "2025-03-21"
+      },
+      "events": [
+        {
+          "detector": "changepoint",
+          "rule_name": "sessions_level_shift_web",
+          "observed": 898.857143,
+          "baseline": 701.142857,
+          "score": 35.055766,
+          "window_start": "2025-03-27",
+          "window_end": "2025-04-02"
+        }
+      ],
+      "attribution": {
+        "channel": [
+          {
+            "rank": 1,
+            "dimension_value": "channel_web",
+            "current_value": 5098.0,
+            "baseline_value": 4896.0,
+            "contribution": 202.0,
+            "contribution_rate": 0.834711,
+            "is_other": false
+          },
+          {
+            "rank": 2,
+            "dimension_value": "channel_app",
+            "current_value": 3652.0,
+            "baseline_value": 3632.0,
+            "contribution": 20.0,
+            "contribution_rate": 0.082645,
+            "is_other": false
+          },
+          {
+            "rank": 3,
+            "dimension_value": "其他",
+            "current_value": 2108.0,
+            "baseline_value": 2088.0,
+            "contribution": 20.0,
+            "contribution_rate": 0.082645,
+            "is_other": true
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-03-31",
+      "metric": "orders",
+      "dimension_name": "channel",
+      "dimension_value": "channel_store",
+      "severity": "high",
+      "detectors": [
+        "threshold"
+      ],
+      "rule_names": [
+        "low_orders_store"
+      ],
+      "event_count": 1,
+      "attribution_windows": {
+        "baseline_end": "2025-03-24",
+        "baseline_periods": 7,
+        "baseline_start": "2025-03-18",
+        "comparison_end": "2025-03-31",
+        "comparison_periods": 7,
+        "comparison_start": "2025-03-25"
+      },
+      "events": [
+        {
+          "detector": "threshold",
+          "rule_name": "low_orders_store",
+          "observed": 20.0,
+          "baseline": 45.0,
+          "score": -25.0,
+          "window_start": "2025-03-31",
+          "window_end": "2025-03-31"
+        }
+      ],
+      "attribution": {
+        "channel": [
+          {
+            "rank": 1,
+            "dimension_value": "channel_store",
+            "current_value": 440.0,
+            "baseline_value": 486.0,
+            "contribution": -46.0,
+            "contribution_rate": 0.867925,
+            "is_other": false
+          },
+          {
+            "rank": 2,
+            "dimension_value": "channel_web",
+            "current_value": 834.0,
+            "baseline_value": 842.0,
+            "contribution": -8.0,
+            "contribution_rate": 0.150943,
+            "is_other": false
+          },
+          {
+            "rank": 3,
+            "dimension_value": "其他",
+            "current_value": 631.0,
+            "baseline_value": 630.0,
+            "contribution": 1.0,
+            "contribution_rate": -0.018868,
+            "is_other": true
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-04-02",
+      "metric": "visits",
+      "dimension_name": "channel",
+      "dimension_value": "channel_app",
+      "severity": "medium",
+      "detectors": [
+        "robust_z"
+      ],
+      "rule_names": [
+        "visits_robust_z_app"
+      ],
+      "event_count": 1,
+      "attribution_windows": {
+        "baseline_end": "2025-03-26",
+        "baseline_periods": 7,
+        "baseline_start": "2025-03-20",
+        "comparison_end": "2025-04-02",
+        "comparison_periods": 7,
+        "comparison_start": "2025-03-27"
+      },
+      "events": [
+        {
+          "detector": "robust_z",
+          "rule_name": "visits_robust_z_app",
+          "observed": 1700.0,
+          "baseline": 800.0,
+          "score": 151.760421,
+          "window_start": "2025-04-02",
+          "window_end": "2025-04-02"
+        }
+      ],
+      "attribution": {
+        "channel": [
+          {
+            "rank": 1,
+            "dimension_value": "channel_app",
+            "current_value": 6500.0,
+            "baseline_value": 5596.0,
+            "contribution": 904.0,
+            "contribution_rate": 0.952582,
+            "is_other": false
+          },
+          {
+            "rank": 2,
+            "dimension_value": "channel_store",
+            "current_value": 2824.0,
+            "baseline_value": 2784.0,
+            "contribution": 40.0,
+            "contribution_rate": 0.04215,
+            "is_other": false
+          },
+          {
+            "rank": 3,
+            "dimension_value": "其他",
+            "current_value": 4205.0,
+            "baseline_value": 4200.0,
+            "contribution": 5.0,
+            "contribution_rate": 0.005269,
+            "is_other": true
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-04-04",
+      "metric": "gmv",
+      "dimension_name": "channel",
+      "dimension_value": "channel_web",
+      "severity": "medium",
+      "detectors": [
+        "delta"
+      ],
+      "rule_names": [
+        "gmv_day_over_day_web"
+      ],
+      "event_count": 1,
+      "attribution_windows": {
+        "baseline_end": "2025-03-28",
+        "baseline_periods": 7,
+        "baseline_start": "2025-03-22",
+        "comparison_end": "2025-04-04",
+        "comparison_periods": 7,
+        "comparison_start": "2025-03-29"
+      },
+      "events": [
+        {
+          "detector": "delta",
+          "rule_name": "gmv_day_over_day_web",
+          "observed": 3000.0,
+          "baseline": 1950.0,
+          "score": 0.538462,
+          "window_start": "2025-04-04",
+          "window_end": "2025-04-04"
+        }
+      ],
+      "attribution": {
+        "channel": [
+          {
+            "rank": 1,
+            "dimension_value": "channel_web",
+            "current_value": 15000.0,
+            "baseline_value": 14100.0,
+            "contribution": 900.0,
+            "contribution_rate": 1.192053,
+            "is_other": false
+          },
+          {
+            "rank": 2,
+            "dimension_value": "channel_app",
+            "current_value": 10380.0,
+            "baseline_value": 10540.0,
+            "contribution": -160.0,
+            "contribution_rate": -0.211921,
+            "is_other": false
+          },
+          {
+            "rank": 3,
+            "dimension_value": "其他",
+            "current_value": 7015.0,
+            "baseline_value": 7000.0,
+            "contribution": 15.0,
+            "contribution_rate": 0.019868,
+            "is_other": true
+          }
+        ]
+      }
+    }
+  ]
+}

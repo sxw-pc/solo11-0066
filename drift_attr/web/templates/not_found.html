@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}未找到 · 漂移归因台{% endblock %}
+{% block content %}
+<section class="empty-state">
+  <div class="empty-icon">404</div>
+  <h2>{{ message|default("页面或运行记录不存在") }}</h2>
+  <p>请返回运行台账，确认运行 ID 与产物是否存在。</p>
+  <a class="button" href="{{ url_for('index') }}">返回运行台账</a>
+</section>
+{% endblock %}

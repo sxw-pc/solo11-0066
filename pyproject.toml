@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drift-attr"
+version = "1.0.0"
+description = "离线业务指标异常检测与维度贡献归因工作台"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "Flask==3.0.3",
+  "PyYAML==6.0.2",
+]
+
+[project.optional-dependencies]
+test = ["pytest==8.3.5"]
+
+[project.scripts]
+drift-attr = "drift_attr.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["drift_attr*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
