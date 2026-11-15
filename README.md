@@ -88,7 +88,7 @@ drift-attr/
     web/       app.py templates/ static/
   fixtures/        demo_metrics.csv  demo_wide_metrics.csv  rules.yaml
                    expected/anomalies_demo.json  expected/attribution_demo.json
-  docs/            CONFIG.md  DETECTORS.md  ATTRIBUTION.md  ERROR_CODES.md
+  docs/            CONFIG.md  DETECTORS.md  ATTRIBUTION.md  ERROR_CODES.md  RETENTION.md
   tests/
 ```
 
@@ -239,8 +239,35 @@ SQLite 表：
 | `anomaly_events` | 原始检测器事件，含观测值、基线、分数、严重度、证据 JSON、窗口 |
 | `attribution_items` | 归属某个异常位置的维度贡献、排名、公式与解释 |
 | `artifacts` | 报告产物类型、相对路径、格式与 SHA-256 |
+| `purge_intents` | 进行中的清理：策略、阶段、完整 path/SHA 清单、进度与冲突 |
+| `purge_tombstones` | 已清理 run 的最小墓碑：时间、策略、原因码、产物 SHA 清单、冲突代码 |
 
 同一 `run_id` 重跑会在一个事务内替换旧运行及其子记录；事件和归因主键由固定输入确定性生成，不会产生重复主键冲突。
+
+## 保留期限与清理
+
+到达本地保留期限的 run 可以用 `purge` 作为单一保留单元清理：SQLite 明细、
+Web 可访问状态与已登记产物字节一起处理。默认 dry-run，显式 `--commit` 才执行。
+
+```bash
+python -m drift_attr purge --run-id demo-run            # dry-run：行数/路径/SHA/策略
+python -m drift_attr purge --run-id demo-run --commit   # 语义A：硬删除，仅留墓碑
+python -m drift_attr purge --run-id demo-run --commit --strategy quarantine
+python -m drift_attr purge --run-id demo-run --restore  # 语义B：移回并恢复
+python -m drift_attr purge --run-id demo-run --discard  # 语义B：核对后永久删除
+python -m drift_attr purge --run-id demo-run --status
+```
+
+- 清理第一步就在事务中写入 intent 并把 run 标为 `purging`，Web 立即拒绝详情与
+  产物下载；之后才逐文件处理，因此中断不会继续暴露半删状态。
+- 每个产物必须 resolve 后仍在 `output_root` 内、不是符号链接、当前 SHA 与台账
+  一致，且没有其他 run 引用同一规范路径；任一条件不满足即停止，冲突对象保留。
+- 语义A 删除原件且不可恢复；语义B 把整个目录原子移入
+  `output/quarantine/<run_id>/run`，保留可验证字节供管理员恢复或取证，再删除
+  SQLite 明细。两者都不删除输入 CSV。
+- 墓碑只保留 run ID、清理时间、策略、原因码、产物 SHA 清单与冲突代码。
+
+详见 [docs/RETENTION.md](docs/RETENTION.md)。
 
 ## CLI
 
@@ -251,6 +278,7 @@ python -m drift_attr validate --config fixtures/rules.yaml
 python -m drift_attr analyze --config fixtures/rules.yaml [--run-id demo-run]
 python -m drift_attr report --run-id demo-run --format markdown --out export.md
 python -m drift_attr runs --db output/drift_attr.sqlite3
+python -m drift_attr purge --run-id demo-run [--commit] [--strategy hard|quarantine]
 python -m drift_attr serve --demo --host 127.0.0.1 --port 8000
 ```
 
@@ -264,6 +292,7 @@ Web 路由：
 | `/` | 运行列表；无数据时显示空状态 |
 | `/runs/<run_id>` | 运行详情、异常证据、归因明细、产物 |
 | `/runs/<run_id>/artifact/<kind>` | 只读查看报告产物的已知类型 |
+| `/tombstones` | 进行中的清理意图与已清理墓碑 |
 | `/healthz` | 本地健康检查 JSON |
 
 ## 错误码
@@ -283,7 +312,7 @@ make test
 python -m pytest -q
 ```
 
-测试覆盖：CSV 读取与错误码、宽表适配、YAML 严格校验、日/周聚合与三种补值、四类检测器正常与边界、MAD=0、贡献额/贡献率/排序/Top-N/“其他”项、总变化为 0、SQLite 幂等、报告期望片段、CLI smoke、Flask 页面 200/404/空状态、本机监听限制。
+测试覆盖：CSV 读取与错误码、宽表适配、YAML 严格校验、日/周聚合与三种补值、四类检测器正常与边界、MAD=0、贡献额/贡献率/排序/Top-N/“其他”项、总变化为 0、SQLite 幂等、报告期望片段、CLI smoke、Flask 页面 200/404/空状态、本机监听限制，以及保留清理的 dry-run 无副作用、SHA 冲突、共享路径、符号链接/路径逃逸、逐文件中断续跑、清理中 Web 拒绝、A/B 两种策略、恢复与重复清理。
 
 手工验收：`make demo` 成功退出且 `output/demo-run/` 下存在三种报告、归因 JSON 和规则快照；SQLite 中 `runs`、`anomaly_events`、`attribution_items`、`artifacts` 有记录；`make run` 后访问 `http://127.0.0.1:8000/` 能看到 `demo-run` 的 4 个异常位置和归因表；打开 `report.html` 后样式完整且不引用远程资源。
 

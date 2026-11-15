@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 from typing import Any, Sequence
-from drift_attr import store
+from drift_attr import purge, store
 from drift_attr.config import load_config
 from drift_attr.dataset import resolve_path
 from drift_attr.demo import ensure_demo, write_demo_fixtures
@@ -52,6 +52,8 @@ def _cmd_report(args: argparse.Namespace) -> int:
     run = store.get_run(args.db, args.run_id)
     if run is None:
         fail("E_RUN_NOT_FOUND", f"台账中不存在运行: {args.run_id}", path=args.db)
+    if store.is_purging(args.db, args.run_id):
+        fail("E_PURGE_STATE", f"run {args.run_id} 正在清理，拒绝导出", path=args.db)
     artifacts = store.get_artifacts(args.db, args.run_id)
     source = next((item for item in artifacts if item["kind"] == "report_json"), None)
     if source is None:
@@ -93,6 +95,69 @@ def _cmd_runs(args: argparse.Namespace) -> int:
             f"{run['attribution_count']}"
         )
     return 0
+def _purge_context(args: argparse.Namespace) -> tuple[Path, Path, Path]:
+    """Resolve base, output_root and database.
+
+    Explicit flags win; a readable --config supplies output.directory and
+    output.database; otherwise fall back to ./output and ./output/drift_attr.sqlite3.
+    """
+    base = Path.cwd().resolve()
+    config = None
+    if Path(args.config).is_file():
+        config = load_config(args.config)
+    if args.output_root:
+        output_root = resolve_path(args.output_root, base)
+    elif config is not None:
+        output_root = resolve_path(config.output.directory, base)
+    else:
+        output_root = (base / "output").resolve()
+    if args.db:
+        database = _resolve_artifact_path(args.db, base)
+    elif config is not None:
+        database = output_root / config.output.database
+    else:
+        database = (base / DEFAULT_DB).resolve()
+    return base, output_root, database
+
+
+def _cmd_purge(args: argparse.Namespace) -> int:
+    base, output_root, database = _purge_context(args)
+    if args.status:
+        _print_json(purge.status(database, args.run_id))
+        return 0
+    if args.discard:
+        result = purge.discard_quarantine(
+            database, args.run_id, base_dir=base, output_root=output_root
+        )
+        _print_json(result)
+        return 0
+    if args.restore:
+        result = purge.restore_quarantine(
+            database, args.run_id, base_dir=base, output_root=output_root
+        )
+        _print_json(result)
+        return 0
+    if args.abort:
+        _print_json(purge.abort_purge(database, args.run_id))
+        return 0
+    if args.commit:
+        result = purge.execute(
+            database, args.run_id, strategy=args.strategy, reason=args.reason,
+            base_dir=base, output_root=output_root,
+        )
+        _print_json(result)
+        return 0 if result["state"] != "conflicted" else 2
+    plan = purge.build_plan(
+        database, args.run_id, strategy=args.strategy,
+        base_dir=base, output_root=output_root, reason=args.reason,
+    )
+    summary = purge.describe_plan(plan)
+    summary["dry_run"] = True
+    summary["next"] = f"python -m drift_attr purge --run-id {args.run_id} --commit"
+    _print_json(summary)
+    return 0 if not summary["conflicts"] else 2
+
+
 def _cmd_serve(args: argparse.Namespace) -> int:
     if args.host not in {"127.0.0.1", "localhost"}:
         fail("E_WEB_HOST", "Web 服务只允许监听 127.0.0.1 或 localhost", field="--host")
@@ -145,6 +210,19 @@ def build_parser() -> argparse.ArgumentParser:
     runs_cmd.add_argument("--db", default=DEFAULT_DB)
     runs_cmd.add_argument("--json", action="store_true")
     runs_cmd.set_defaults(func=_cmd_runs)
+    purge_cmd = sub.add_parser("purge", help="按保留期限清理单个 run 的明细与产物")
+    purge_cmd.add_argument("--run-id", required=True)
+    purge_cmd.add_argument("--db", default=None, help="台账路径，默认取配置 output.database")
+    purge_cmd.add_argument("--config", default=DEFAULT_CONFIG)
+    purge_cmd.add_argument("--output-root", default=None, help="输出根目录，默认取配置 output.directory")
+    purge_cmd.add_argument("--strategy", choices=purge.STRATEGIES, default="hard")
+    purge_cmd.add_argument("--reason", default="retention", help="清理原因码，记入墓碑")
+    purge_cmd.add_argument("--commit", action="store_true", help="显式执行；缺省为 dry-run")
+    purge_cmd.add_argument("--status", action="store_true", help="只查询清理意图/墓碑状态")
+    purge_cmd.add_argument("--abort", action="store_true", help="放弃尚未开始删除的清理意图")
+    purge_cmd.add_argument("--restore", action="store_true", help="隔离策略：恢复 run 目录与台账")
+    purge_cmd.add_argument("--discard", action="store_true", help="隔离策略：核对后永久删除隔离副本")
+    purge_cmd.set_defaults(func=_cmd_purge)
     serve_cmd = sub.add_parser("serve", help="启动本地只读 Web 查看器")
     serve_cmd.add_argument("--config", default=DEFAULT_CONFIG)
     serve_cmd.add_argument("--host", default="127.0.0.1")

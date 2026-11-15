@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,19 @@ MIME_TYPES = {
     "yaml": "text/yaml; charset=utf-8",
 }
 ALLOWED_HOSTS = {"127.0.0.1", "localhost"}
+HIDDEN_RUN_STATES = {"purging"}
+
+
+def _visible_run(database_path: str | Path, run_id: str) -> dict[str, Any] | None:
+    """Return a run only while it is a normal, non-purging record.
+
+    A purge intent hides the run from the very first committed state, before
+    any byte is unlinked, so partially deleted artifacts can never be served.
+    """
+    run = store.get_run(database_path, run_id)
+    if run is None or run.get("status") in HIDDEN_RUN_STATES:
+        return None
+    return run
 
 
 def _group_view(events: list[dict[str, Any]], items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -93,7 +107,7 @@ def create_app(
 
     @app.get("/runs/<run_id>")
     def run_detail(run_id: str) -> str:
-        run = store.get_run(app.config["DATABASE_PATH"], run_id)
+        run = _visible_run(app.config["DATABASE_PATH"], run_id)
         if run is None:
             abort(404)
         events = store.get_events(app.config["DATABASE_PATH"], run_id)
@@ -109,20 +123,23 @@ def create_app(
 
     @app.get("/runs/<run_id>/artifact/<kind>")
     def artifact(run_id: str, kind: str) -> Response:
-        if store.get_run(app.config["DATABASE_PATH"], run_id) is None:
+        if _visible_run(app.config["DATABASE_PATH"], run_id) is None:
             abort(404)
         artifacts = store.get_artifacts(app.config["DATABASE_PATH"], run_id)
         selected = next((item for item in artifacts if item["kind"] == kind), None)
         if selected is None:
             abort(404)
         raw = Path(selected["path"])
-        candidate = raw.resolve() if raw.is_absolute() else (
-            app.config["PROJECT_ROOT"] / raw
-        ).resolve()
+        candidate = (raw if raw.is_absolute() else app.config["PROJECT_ROOT"] / raw)
+        if candidate.is_symlink():
+            abort(404)
+        candidate = candidate.resolve()
         root = app.config["OUTPUT_ROOT"]
         if not candidate.is_relative_to(root) or not candidate.is_file():
             abort(404)
         content = candidate.read_text(encoding="utf-8")
+        if hashlib.sha256(content.encode("utf-8")).hexdigest() != selected["sha256"]:
+            abort(404)
         mime = MIME_TYPES.get(selected["format"], "text/plain; charset=utf-8")
         download = request.args.get("download") == "1"
         disposition = "attachment" if download else "inline"
@@ -140,6 +157,15 @@ def create_app(
                 "offline": True,
                 "runs": len(store.list_runs(app.config["DATABASE_PATH"])),
             }
+        )
+
+    @app.get("/tombstones")
+    def tombstones() -> str:
+        return render_template(
+            "tombstones.html",
+            tombstones=store.list_tombstones(app.config["DATABASE_PATH"]),
+            intents=store.list_purge_intents(app.config["DATABASE_PATH"]),
+            active="tombstones",
         )
 
     @app.errorhandler(404)

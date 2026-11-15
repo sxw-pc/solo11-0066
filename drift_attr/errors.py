@@ -30,6 +30,10 @@ ERROR_CATALOG: dict[str, str] = {
     "E_ARTIFACT_NOT_FOUND": "运行产物不存在",
     "E_STORE": "SQLite 台账读写失败",
     "E_SAFE_PATH": "路径越界或不安全",
+    "E_PURGE_NOT_FOUND": "台账中不存在可清理的运行",
+    "E_PURGE_STATE": "运行当前状态不允许该清理操作",
+    "E_PURGE_CONFLICT": "清理发现路径、内容或共享引用冲突",
+    "E_PURGE_RESUME": "清理过程存在不可恢复的中断状态",
     "E_WEB_HOST": "Web 服务只允许监听本机地址",
     "E_WEB_NOT_FOUND": "页面或运行不存在",
 }

@@ -54,3 +54,55 @@ def test_report_without_out_writes_stdout(tmp_path, monkeypatch, capsys):
     ]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["run"]["run_id"] == "stdout-run"
+
+
+def test_purge_cli_dry_run_commit_and_status(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    assert main(["demo", "--run-id", "purge-cli"]) == 0
+    capsys.readouterr()
+    db = "output/drift_attr.sqlite3"
+    assert main(["purge", "--run-id", "purge-cli", "--db", db]) == 0
+    dry = json.loads(capsys.readouterr().out)
+    assert dry["dry_run"] is True and dry["state"] == "new"
+    assert dry["sqlite"]["tables"]["runs"] == 1
+    assert (tmp_path / "output" / "purge-cli" / "report.json").is_file()
+    assert main(["runs", "--db", db]) == 0
+    assert "purge-cli" in capsys.readouterr().out
+
+    assert main([
+        "purge", "--run-id", "purge-cli", "--db", db,
+        "--commit", "--reason", "retention-expired",
+    ]) == 0
+    committed = json.loads(capsys.readouterr().out)
+    assert committed["state"] == "complete"
+    assert not (tmp_path / "output" / "purge-cli").exists()
+    assert main(["runs", "--db", db]) == 0
+    assert "purge-cli" not in capsys.readouterr().out
+    assert main(["purge", "--run-id", "purge-cli", "--db", db, "--status"]) == 0
+    status = json.loads(capsys.readouterr().out)
+    assert status["tombstone"]["reason"] == "retention-expired"
+    assert status["run_status"] is None
+
+
+def test_purge_cli_conflict_exit_code(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    assert main(["demo", "--run-id", "conflict-cli"]) == 0
+    capsys.readouterr()
+    (tmp_path / "output" / "conflict-cli" / "report.json").write_text("{}", encoding="utf-8")
+    assert main([
+        "purge", "--run-id", "conflict-cli", "--db", "output/drift_attr.sqlite3",
+    ]) == 2
+    dry = json.loads(capsys.readouterr().out)
+    assert dry["conflicts"][0]["code"] == "conflict_hash"
+    assert (tmp_path / "output" / "conflict-cli" / "report.json").read_text() == "{}"
+    # dry-run never hides the run; an explicit commit starts the purge and
+    # records the conflict, which blocks report export afterwards.
+    assert main([
+        "purge", "--run-id", "conflict-cli", "--db", "output/drift_attr.sqlite3",
+        "--commit",
+    ]) == 2
+    committed = json.loads(capsys.readouterr().out)
+    assert committed["state"] == "conflicted"
+    assert (tmp_path / "output" / "conflict-cli" / "report.json").read_text() == "{}"
+    assert main(["report", "--run-id", "conflict-cli", "--db", "output/drift_attr.sqlite3"]) == 1
+    assert "E_PURGE_STATE" in capsys.readouterr().err

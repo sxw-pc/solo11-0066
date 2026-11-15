@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}清理记录 · 漂移归因台{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">RETENTION TOMBSTONES</p>
+    <h1>清理记录</h1>
+    <p class="lede">已清理 run 只保留最小墓碑：run ID、清理时间、策略、原因码与产物 SHA 清单，不保留归因值、规则原文或路径。</p>
+  </div>
+</section>
+
+{% if intents %}
+<section class="panel">
+  <div class="panel-head"><h2>进行中的清理</h2><span class="muted">这些 run 已从台账与产物路由隐藏</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>运行 ID</th><th>策略</th><th>状态</th><th>更新时间</th><th class="num">冲突</th></tr></thead>
+      <tbody>
+        {% for intent in intents %}
+        <tr>
+          <td><span class="mono">{{ intent.run_id }}</span></td>
+          <td>{{ intent.strategy }}</td>
+          <td><span class="status status-{{ intent.state }}">{{ intent.state }}</span></td>
+          <td class="muted">{{ intent.updated_at }}</td>
+          <td class="num">{{ intent.conflicts|length }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-head"><h2>已清理</h2><span class="muted">共 {{ tombstones|length }} 条</span></div>
+  {% if tombstones %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>运行 ID</th><th>清理时间</th><th>策略</th><th>原因码</th><th class="num">产物 SHA</th><th class="num">冲突</th></tr></thead>
+      <tbody>
+        {% for tombstone in tombstones %}
+        <tr>
+          <td><span class="mono">{{ tombstone.run_id }}</span></td>
+          <td class="muted">{{ tombstone.purged_at }}</td>
+          <td>{{ tombstone.strategy }}</td>
+          <td class="muted">{{ tombstone.reason }}</td>
+          <td class="num">{{ tombstone.artifact_shas|length }}</td>
+          <td class="num">{{ tombstone.conflicts|length }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">还没有已清理的运行记录。</p>
+  {% endif %}
+</section>
+{% endblock %}

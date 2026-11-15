@@ -41,3 +41,33 @@ def test_seeded_web_pages_and_artifacts(tmp_path):
     assert client.get("/runs/absent").status_code == 404
     health = client.get("/healthz").get_json()
     assert health["runs"] == 1
+
+
+def test_purging_run_hidden_and_tombstone_page(tmp_path):
+    import sqlite3
+
+    root = demo_project(tmp_path)
+    result = analyze(root / "fixtures" / "rules.yaml", run_id="hidden-run", base_dir=root)
+    app = create_app(result.database_path, root / "output", root)
+    client = app.test_client()
+    assert client.get("/runs/hidden-run").status_code == 200
+
+    with sqlite3.connect(result.database_path) as conn:
+        conn.execute("UPDATE runs SET status = 'purging' WHERE run_id = 'hidden-run'")
+    assert client.get("/runs/hidden-run").status_code == 404
+    assert client.get("/runs/hidden-run/artifact/report_json").status_code == 404
+    assert "hidden-run" not in client.get("/").get_data(as_text=True)
+    assert client.get("/healthz").get_json()["runs"] == 0
+    page = client.get("/tombstones")
+    assert page.status_code == 200
+    assert "还没有已清理的运行记录" in page.get_data(as_text=True)
+
+
+def test_artifact_hash_drift_is_not_served(tmp_path):
+    root = demo_project(tmp_path)
+    result = analyze(root / "fixtures" / "rules.yaml", run_id="drift-run", base_dir=root)
+    app = create_app(result.database_path, root / "output", root)
+    client = app.test_client()
+    assert client.get("/runs/drift-run/artifact/report_json").status_code == 200
+    (result.run_dir / "report.json").write_text("{}", encoding="utf-8")
+    assert client.get("/runs/drift-run/artifact/report_json").status_code == 404

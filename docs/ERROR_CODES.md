@@ -80,3 +80,18 @@ Web 不返回内部 traceback。运行 ID 不存在、未知产物类型、产�
 - 对数据错误同时断言 `line` 与 `field`；
 - 对 CLI 错误断言 stderr 包含错误码；
 - 对 Web 错误断言 HTTP 状态码和页面文案，不依赖 Flask 默认 404 HTML。
+
+## 保留清理（purge）
+
+| 错误码 | 触发条件 |
+| --- | --- |
+| `E_PURGE_NOT_FOUND` | 台账中没有该 `run_id`，也没有对应的清理意图或墓碑 |
+| `E_PURGE_STATE` | 当前状态不允许该操作，例如 `purging` 却无意图、已写墓碑后又想恢复、隔离目录与原目录都不存在 |
+| `E_PURGE_CONFLICT` | 清理发现路径越界、符号链接、共享引用、SHA 不符、缺表或无法确认状态；冲突对象一律保留 |
+| `E_PURGE_RESUME` | 续跑时 run 目录既不在原位置也不在隔离区，字节去向无法确认 |
+
+冲突项在 `purge --commit` 的 JSON 输出中带稳定 `code`：
+`conflict_path`、`conflict_symlink`、`conflict_missing`、`conflict_hash`、
+`conflict_shared`、`conflict_state`。出现冲突时 CLI 退出码为 `2`，run 保持
+`purging`（Web 继续拒绝详情与产物下载），直到重新发起、`--abort` 或
+（隔离策略）`--restore`。

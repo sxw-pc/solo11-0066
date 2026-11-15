@@ -14,6 +14,7 @@
     </a>
     <nav aria-label="主导航">
       <a href="{{ url_for('index') }}" class="{{ 'active' if active == 'runs' else '' }}">运行台账</a>
+      <a href="{{ url_for('tombstones') }}" class="{{ 'active' if active == 'tombstones' else '' }}">清理记录</a>
       <span class="offline-badge">本地离线</span>
     </nav>
   </header>
