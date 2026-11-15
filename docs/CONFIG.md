@@ -27,6 +27,7 @@ python -m drift_attr analyze --config fixtures/rules.yaml --run-id demo-run
 | `detection` | mapping | 是 | 必须包含非空 `detectors` 列表 |
 | `attribution` | mapping | 是 | 归因维度、窗口、Top-N |
 | `output` | mapping | 否 | 输出目录与 SQLite 文件名 |
+| `replay` | mapping | 否 | 运行重放的输入保留策略 |
 
 顶层不允许其他字段。
 
@@ -156,6 +157,17 @@ detection:
 | `database` | string | `drift_attr.sqlite3` | SQLite 文件名，只能是输出目录内文件名，不能含路径分隔符 |
 
 每次运行生成的文件固定为 JSON、Markdown、自包含 HTML、归因 JSON 和规则快照，不提供“关闭某种格式”的配置，以保证验收产物一致。
+
+## replay
+
+| 字段 | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `input_policy` | `reference` / `snapshot` | `reference` | 运行输入的保留与重放身份校验策略 |
+
+- `reference`：台账只登记输入路径、load 时的原始字节 SHA256（`raw_sha256`）和规范化 `dataset_fingerprint`，不复制 CSV。`replay` 从原路径（或 `--input-override`）读取，原始 SHA 与规范化指纹必须同时一致；源文件缺失返回 `E_REPLAY_INPUT_MISSING`，任一身份不一致返回 `E_REPLAY_INPUT_MISMATCH`。
+- `snapshot`：首次分析时把 loader 实际解析的**同一次读取**原始 CSV 字节原子封存到运行内部快照目录 `output/.input-snapshots/`，并登记 raw SHA、规范化指纹、格式和相对路径。重放只读快照，快照损坏或缺失即失败，不会回退到源路径，也不接受 `--input-override`。快照不注册为 artifact，Web 路由无法访问。
+
+原始字节 SHA 与规范化指纹职责不同：行序或编码不同但业务值相同的两份 CSV 拥有相同 `dataset_fingerprint`，但 `raw_sha256` 不同，因此不能称为精确重放。
 
 ## 完整示例
 

@@ -116,3 +116,35 @@ def test_long_dataset_requires_all_columns(tmp_path):
         load_with(tmp_path, payload)
     assert exc.value.code == "E_CONFIG_SCHEMA"
     assert exc.value.field == "dataset.value_field"
+
+
+def test_replay_input_policy_defaults_to_reference(tmp_path):
+    config = load_with(tmp_path, valid_config())
+    assert config.replay.input_policy == "reference"
+
+
+def test_replay_snapshot_policy_loads_and_rejects_unknown(tmp_path):
+    payload = valid_config()
+    payload["replay"] = {"input_policy": "snapshot"}
+    assert load_with(tmp_path, payload).replay.input_policy == "snapshot"
+    bad = valid_config()
+    bad["replay"] = {"input_policy": "cloud"}
+    with pytest.raises(DriftError) as exc:
+        load_with(tmp_path, bad)
+    assert exc.value.code == "E_CONFIG_SCHEMA"
+    assert exc.value.field == "replay.input_policy"
+    unknown = valid_config()
+    unknown["replay"] = {"retention": "forever"}
+    with pytest.raises(DriftError) as exc:
+        load_with(tmp_path, unknown)
+    assert exc.value.code == "E_CONFIG_SCHEMA"
+
+
+def test_parse_config_text_reloads_rule_snapshot(tmp_path):
+    from drift_attr.config import parse_config_text
+
+    path = write_config(tmp_path / "rules.yaml", valid_config())
+    text = path.read_text(encoding="utf-8")
+    config = parse_config_text(text, tmp_path / "virtual-snapshot.yaml")
+    assert config.source_path == (tmp_path / "virtual-snapshot.yaml")
+    assert config.fingerprint == load_config(path).fingerprint

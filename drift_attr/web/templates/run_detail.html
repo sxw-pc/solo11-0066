@@ -27,6 +27,10 @@
     <dt>配置指纹</dt><dd class="mono">{{ run.config_fingerprint }}</dd>
     <dt>数据文件</dt><dd class="mono">{{ run.dataset_path }}</dd>
     <dt>数据指纹</dt><dd class="mono">{{ run.dataset_fingerprint }}</dd>
+    <dt>输入策略</dt><dd class="mono">{{ run.input_policy }}</dd>
+    {% if run.replay_of %}
+    <dt>重放来源</dt><dd class="mono"><a href="{{ url_for('run_detail', run_id=run.replay_of) }}">{{ run.replay_of }}</a></dd>
+    {% endif %}
     <dt>输出目录</dt><dd class="mono">{{ run.output_dir }}</dd>
   </dl>
 </section>

@@ -49,6 +49,10 @@ class AttributionConfig:
 class OutputConfig:
     directory: str
     database: str
+INPUT_POLICIES = ("reference", "snapshot")
+@dataclass(frozen=True)
+class ReplayConfig:
+    input_policy: str
 @dataclass
 class AppConfig:
     source_path: Path
@@ -60,7 +64,8 @@ class AppConfig:
     detectors: list[DetectorRule] = field(default_factory=list)
     attribution: AttributionConfig | None = None
     output: OutputConfig | None = None
-TOP_KEYS = {"version", "dataset", "series", "detection", "attribution", "output"}
+    replay: ReplayConfig = field(default_factory=lambda: ReplayConfig("reference"))
+TOP_KEYS = {"version", "dataset", "series", "detection", "attribution", "output", "replay"}
 DATASET_KEYS = {
     "path", "format", "encoding", "duplicate_policy", "empty_value", "date_field",
     "metric_field", "dimension_name_field", "dimension_value_field", "value_field",
@@ -69,6 +74,7 @@ DATASET_KEYS = {
 SERIES_KEYS = {"granularity", "aggregate", "fill_missing", "week_start"}
 ATTRIBUTION_KEYS = {"dimensions", "top_n", "baseline_window", "comparison_window", "other_label"}
 OUTPUT_KEYS = {"directory", "database"}
+REPLAY_KEYS = {"input_policy"}
 def _mapping(value: Any, field_name: str) -> Mapping[str, Any]:
     if not isinstance(value, dict):
         fail("E_CONFIG_SCHEMA", f"{field_name} 必须是映射", field=field_name)
@@ -203,6 +209,17 @@ def _attribution(raw: Mapping[str, Any]) -> AttributionConfig:
         comparison_window=comparison,
         other_label=_text(raw, "other_label", "attribution", "其他"),
     )
+def _replay(raw: Any) -> ReplayConfig:
+    section = _mapping(raw, "replay")
+    _only(section, REPLAY_KEYS, "replay")
+    policy = _text(section, "input_policy", "replay", "reference").lower()
+    if policy not in INPUT_POLICIES:
+        fail(
+            "E_CONFIG_SCHEMA",
+            f"input_policy 必须是 {'/'.join(INPUT_POLICIES)}",
+            field="replay.input_policy",
+        )
+    return ReplayConfig(input_policy=policy)
 def load_config(path: str | Path) -> AppConfig:
     source = Path(path)
     if not source.exists() or not source.is_file():
@@ -211,12 +228,17 @@ def load_config(path: str | Path) -> AppConfig:
         text = source.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
         raise DriftError("E_CONFIG_SCHEMA", "配置文件必须使用 UTF-8 编码", path=str(path)) from exc
+    return parse_config_text(text, source.resolve())
+
+
+def parse_config_text(text: str, source_path: Path) -> AppConfig:
+    """Parse YAML rule text, e.g. a rule snapshot reloaded during replay."""
     try:
         raw = yaml.safe_load(text)
     except yaml.YAMLError as exc:
         mark = getattr(exc, "problem_mark", None)
         raise DriftError(
-            "E_CONFIG_PARSE", "YAML 解析失败", path=str(path),
+            "E_CONFIG_PARSE", "YAML 解析失败", path=str(source_path),
             line=(mark.line + 1) if mark else None,
         ) from exc
     root = _mapping(raw, "root")
@@ -239,7 +261,7 @@ def load_config(path: str | Path) -> AppConfig:
         database=database,
     )
     return AppConfig(
-        source_path=source.resolve(),
+        source_path=source_path,
         fingerprint=hashlib.sha256(text.encode("utf-8")).hexdigest(),
         text=text,
         version=1,
@@ -248,4 +270,5 @@ def load_config(path: str | Path) -> AppConfig:
         detectors=_detectors(detection_raw.get("detectors")),
         attribution=_attribution(attribution_raw),
         output=output,
+        replay=_replay(root.get("replay", {})),
     )

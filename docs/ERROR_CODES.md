@@ -58,10 +58,14 @@
 
 | 错误码 | 触发条件 |
 | --- | --- |
-| `E_ARGUMENT` | CLI 参数非法，例如 `run_id` 含路径字符、端口越界 |
+| `E_ARGUMENT` | CLI 参数非法，例如 `run_id` 含路径字符、端口越界、snapshot 重放传入 `--input-override` |
 | `E_ANALYSIS` | 报告或运行目录写入失败 |
-| `E_RUN_NOT_FOUND` | `report` 命令指定的 `run_id` 不在台账中 |
+| `E_RUN_NOT_FOUND` | `report` / `replay` 命令指定的 `run_id` 不在台账中 |
 | `E_ARTIFACT_NOT_FOUND` | 台账缺少对应报告产物，或产物文件已不存在 |
+| `E_REPLAY_INPUT_MISSING` | 重放所需的原始输入文件（reference）或封存快照（snapshot）不存在/不可读 |
+| `E_REPLAY_INPUT_MISMATCH` | 重放输入的原始字节 SHA256 或规范化 `dataset_fingerprint` 与父运行不一致 |
+| `E_REPLAY_BINDING_MISSING` | 父运行缺少 `input_bindings` 输入绑定或规则快照，无法重放 |
+| `E_REPLAY_SNAPSHOT` | 输入快照封存失败、封存字节校验不一致或快照路径越界 |
 | `E_STORE` | SQLite 初始化或事务写入失败 |
 | `E_SAFE_PATH` | 路径安全校验失败（保留；Web 实际以 404 隐藏越界访问） |
 

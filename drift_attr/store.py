@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS runs (
  rule_fingerprint TEXT NOT NULL, output_dir TEXT NOT NULL,
  series_count INTEGER NOT NULL DEFAULT 0, event_count INTEGER NOT NULL DEFAULT 0,
  anomaly_count INTEGER NOT NULL DEFAULT 0, attribution_count INTEGER NOT NULL DEFAULT 0,
- error_summary TEXT);
+ error_summary TEXT, replay_of TEXT, input_policy TEXT NOT NULL DEFAULT 'reference');
 CREATE TABLE IF NOT EXISTS rule_snapshots (
  run_id TEXT PRIMARY KEY REFERENCES runs(run_id) ON DELETE CASCADE,
  fingerprint TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL);
@@ -28,6 +28,12 @@ CREATE TABLE IF NOT EXISTS datasets (
  run_id TEXT NOT NULL UNIQUE REFERENCES runs(run_id) ON DELETE CASCADE,
  path TEXT NOT NULL, fingerprint TEXT NOT NULL, row_count INTEGER NOT NULL,
  format TEXT NOT NULL, warnings_json TEXT NOT NULL, min_value REAL, max_value REAL);
+CREATE TABLE IF NOT EXISTS input_bindings (
+ run_id TEXT PRIMARY KEY REFERENCES runs(run_id) ON DELETE CASCADE,
+ input_policy TEXT NOT NULL, source_path TEXT NOT NULL,
+ raw_sha256 TEXT NOT NULL, dataset_fingerprint TEXT NOT NULL,
+ format TEXT NOT NULL, relative_path TEXT, snapshot_path TEXT,
+ snapshot_relative TEXT, replay_of TEXT, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS anomaly_events (
  event_id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
  group_id TEXT NOT NULL, metric TEXT NOT NULL, dimension_name TEXT NOT NULL,
@@ -61,10 +67,22 @@ def _connect(db_path: str | Path) -> sqlite3.Connection:
     return conn
 
 
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Add replay columns to ledgers created before input bindings existed."""
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(runs)")}
+    if "replay_of" not in columns:
+        conn.execute("ALTER TABLE runs ADD COLUMN replay_of TEXT")
+    if "input_policy" not in columns:
+        conn.execute(
+            "ALTER TABLE runs ADD COLUMN input_policy TEXT NOT NULL DEFAULT 'reference'"
+        )
+
+
 def init_db(db_path: str | Path) -> None:
     try:
         with _connect(db_path) as conn:
             conn.executescript(SCHEMA)
+            _migrate(conn)
     except sqlite3.Error as exc:
         raise DriftError("E_STORE", f"初始化台账失败: {exc}", path=str(db_path)) from exc
 
@@ -77,25 +95,30 @@ def save_run(
     db_path: str | Path, *, run: dict[str, Any], rule_snapshot: dict[str, str],
     dataset: dict[str, Any], events: list[dict[str, Any]],
     attribution_items: list[dict[str, Any]], artifacts: list[dict[str, Any]],
+    input_binding: dict[str, Any] | None = None,
 ) -> None:
     """Replace one run atomically; rerunning a run_id never duplicates rows."""
     try:
         with _connect(db_path) as conn:
             conn.executescript(SCHEMA)
+            _migrate(conn)
             conn.execute("DELETE FROM runs WHERE run_id = ?", (run["run_id"],))
             conn.execute(
                 """INSERT INTO runs (run_id, started_at, finished_at, status,
                 config_path, config_fingerprint, dataset_path, dataset_fingerprint,
                 rule_fingerprint, output_dir, series_count, event_count,
-                anomaly_count, attribution_count, error_summary)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                anomaly_count, attribution_count, error_summary, replay_of,
+                input_policy)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     run["run_id"], run["started_at"], run["finished_at"], run["status"],
                     run.get("config_path", ""), run["config_fingerprint"],
                     run["dataset_path"], run["dataset_fingerprint"],
                     run["rule_fingerprint"], run["output_dir"], run["series_count"],
                     run["event_count"], run["anomaly_count"], run["attribution_count"],
-                    run.get("error_summary"),
+                    run.get("error_summary"), run.get("replay_of"),
+                    input_binding["input_policy"] if input_binding
+                    else run.get("input_policy", "reference"),
                 ),
             )
             conn.execute(
@@ -113,6 +136,22 @@ def save_run(
                     dataset.get("min_value"), dataset.get("max_value"),
                 ),
             )
+            if input_binding is not None:
+                conn.execute(
+                    """INSERT INTO input_bindings (run_id, input_policy, source_path,
+                    raw_sha256, dataset_fingerprint, format, relative_path,
+                    snapshot_path, snapshot_relative, replay_of, created_at)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        run["run_id"], input_binding["input_policy"],
+                        input_binding["source_path"], input_binding["raw_sha256"],
+                        input_binding["dataset_fingerprint"], input_binding["format"],
+                        input_binding.get("relative_path"),
+                        input_binding.get("snapshot_path"),
+                        input_binding.get("snapshot_relative"),
+                        input_binding.get("replay_of"), run["finished_at"],
+                    ),
+                )
             conn.executemany(
                 """INSERT INTO anomaly_events (event_id, run_id, group_id, metric,
                 dimension_name, dimension_value, anomaly_date, detector, rule_name,
@@ -207,3 +246,10 @@ def get_rule_snapshot(db_path: str | Path, run_id: str) -> str | None:
         db_path, "SELECT content FROM rule_snapshots WHERE run_id = ?", (run_id,)
     )
     return str(rows[0]["content"]) if rows else None
+
+
+def get_input_binding(db_path: str | Path, run_id: str) -> dict[str, Any] | None:
+    rows = _query(
+        db_path, "SELECT * FROM input_bindings WHERE run_id = ?", (run_id,)
+    )
+    return rows[0] if rows else None

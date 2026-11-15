@@ -23,6 +23,7 @@
           <th>运行 ID</th>
           <th>状态</th>
           <th>开始时间</th>
+          <th>重放来源</th>
           <th class="num">异常位置</th>
           <th class="num">原始事件</th>
           <th class="num">归因项</th>
@@ -35,6 +36,7 @@
           <td><span class="mono">{{ run.run_id }}</span></td>
           <td><span class="status status-{{ run.status }}">{{ run.status }}</span></td>
           <td class="muted">{{ run.started_at }}</td>
+          <td>{% if run.replay_of %}<a class="text-link mono" href="{{ url_for('run_detail', run_id=run.replay_of) }}">{{ run.replay_of }}</a>{% else %}<span class="muted">—</span>{% endif %}</td>
           <td class="num">{{ run.anomaly_count }}</td>
           <td class="num">{{ run.event_count }}</td>
           <td class="num">{{ run.attribution_count }}</td>

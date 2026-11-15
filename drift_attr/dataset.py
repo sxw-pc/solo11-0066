@@ -26,6 +26,8 @@ class Dataset:
     rows: list[MetricRow]
     fingerprint: str
     warnings: list[str] = field(default_factory=list)
+    raw_bytes: bytes = b""
+    raw_sha256: str = ""
     @property
     def row_count(self) -> int:
         return len(self.rows)
@@ -37,15 +39,26 @@ def resolve_path(value: str | Path, base_dir: str | Path | None = None) -> Path:
     if not path.is_absolute():
         path = Path(base_dir or Path.cwd()) / path
     return path.resolve()
-def _read_text(path: Path, display: str) -> str:
+def _read_bytes(path: Path, display: str) -> bytes:
     if not path.exists() or not path.is_file():
         fail("E_DATA_FILE_NOT_FOUND", "数据文件不存在", path=display)
     try:
-        return path.read_bytes().decode("utf-8-sig")
+        return path.read_bytes()
+    except OSError as exc:
+        raise DriftError("E_DATA_FILE_NOT_FOUND", f"数据文件读取失败: {exc}", path=display) from exc
+
+
+def _decode_text(raw: bytes, display: str) -> str:
+    try:
+        return raw.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
         raise DriftError(
             "E_DATA_ENCODING", "数据文件必须使用 UTF-8 编码", path=display
         ) from exc
+
+
+def _read_text(path: Path, display: str) -> str:
+    return _decode_text(_read_bytes(path), display)
 def _normalized_headers(reader: csv.DictReader, display: str, required: set[str]) -> list[str]:
     headers = [str(item).strip() for item in (reader.fieldnames or [])]
     if not headers or any(not item for item in headers):
@@ -201,13 +214,15 @@ def _read_wide(
                 )
             )
     return rows, warnings
-def load_dataset(
-    cfg: DatasetConfig, base_dir: str | Path | None = None
+def parse_dataset_bytes(
+    raw: bytes,
+    cfg: DatasetConfig,
+    display: str,
+    *,
+    resolved_path: Path,
 ) -> Dataset:
-    """Load a local CSV into canonical rows and compute a stable fingerprint."""
-    resolved = resolve_path(cfg.path, base_dir)
-    display = cfg.path
-    text = _read_text(resolved, display)
+    """Parse the exact bytes the loader read; callers never re-read the source."""
+    text = _decode_text(raw, display)
     if cfg.format == "long":
         rows, warnings = _read_long(text, cfg, display)
     else:
@@ -218,12 +233,24 @@ def load_dataset(
     warnings.extend(escaped)
     return Dataset(
         path=cfg.path,
-        resolved_path=resolved,
+        resolved_path=resolved_path,
         format=cfg.format,
         rows=rows,
         fingerprint=_fingerprint(rows),
         warnings=warnings,
+        raw_bytes=raw,
+        raw_sha256=hashlib.sha256(raw).hexdigest(),
     )
+
+
+def load_dataset(
+    cfg: DatasetConfig, base_dir: str | Path | None = None
+) -> Dataset:
+    """Load a local CSV into canonical rows and compute a stable fingerprint."""
+    resolved = resolve_path(cfg.path, base_dir)
+    display = cfg.path
+    return parse_dataset_bytes(_read_bytes(resolved, display), cfg, display,
+                               resolved_path=resolved)
 def dataset_summary(dataset: Dataset) -> dict[str, object]:
     values = [stable_float(row.value) for row in dataset.rows]
     return {

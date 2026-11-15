@@ -224,6 +224,7 @@ output/<run_id>/report.md              # Markdown 复核报告
 output/<run_id>/report.html            # 自包含 HTML，CSS 内联
 output/<run_id>/attribution.json       # 归因明细导出
 output/<run_id>/rules.snapshot.yaml    # 本次运行规则快照
+output/.input-snapshots/<run_id>.csv   # snapshot 策略封存的原始输入字节（内部目录，不对外）
 output/drift_attr.sqlite3              # SQLite 台账
 ```
 
@@ -233,14 +234,23 @@ SQLite 表：
 
 | 表 | 作用 |
 | --- | --- |
-| `runs` | 运行 ID、开始/结束时间、状态、配置/数据/规则指纹、计数、错误摘要 |
+| `runs` | 运行 ID、开始/结束时间、状态、配置/数据/规则指纹、计数、错误摘要、`replay_of` 与 `input_policy` |
 | `rule_snapshots` | 每次运行的规则原文与指纹 |
 | `datasets` | 数据路径、指纹、行数、格式、警告与数值范围 |
+| `input_bindings` | 输入策略、来源路径、原始字节 SHA256、规范化指纹、快照相对路径与 `replay_of` 父子关系 |
 | `anomaly_events` | 原始检测器事件，含观测值、基线、分数、严重度、证据 JSON、窗口 |
 | `attribution_items` | 归属某个异常位置的维度贡献、排名、公式与解释 |
 | `artifacts` | 报告产物类型、相对路径、格式与 SHA-256 |
 
-同一 `run_id` 重跑会在一个事务内替换旧运行及其子记录；事件和归因主键由固定输入确定性生成，不会产生重复主键冲突。
+同一 `run_id` 重跑会在一个事务内替换旧运行及其子记录；事件和归因主键由固定输入确定性生成，不会产生重复主键冲突。旧版本台账首次写入时自动迁移出 `replay_of`、`input_policy` 列与 `input_bindings` 表。
+
+## 运行重放（replay）
+
+`replay` 依据父 run 的**规则快照**和**输入绑定**重新执行完整分析，生成新的子 run 并在 `runs.replay_of` 与 `input_bindings.replay_of` 记录父子关系，绝不覆盖父 run。子 run 的事件、分组与归因业务字段与父 run 相同（仅 run_id、事件/分组 ID、时间戳和路径不同）。
+
+- `replay.input_policy: reference`（默认）：只登记路径、load 时原始字节 SHA256 与规范化指纹。重放从原路径或 `--input-override` 读取，原始 SHA 与规范化指纹必须同时一致；缺文件报 `E_REPLAY_INPUT_MISSING`，不匹配报 `E_REPLAY_INPUT_MISMATCH`。
+- `replay.input_policy: snapshot`：首次分析将 loader 同一次读取的原始 CSV 字节原子封存到 `output/.input-snapshots/`；重放只读快照，源文件被删除也能复算，快照被改一字节或删除即拒绝且不回退源路径，且不接受 `--input-override`。
+- 任何身份校验失败都在创建子 run、报告目录或台账记录之前返回，不会留下半成品；对已生成的子 run 再次重放始终沿父 run 自己的输入绑定，不会绑定到其他 run 的当前路径。
 
 ## CLI
 
@@ -249,13 +259,14 @@ python -m drift_attr demo [--config fixtures/rules.yaml] [--run-id demo-run]
 python -m drift_attr init-demo [--force]
 python -m drift_attr validate --config fixtures/rules.yaml
 python -m drift_attr analyze --config fixtures/rules.yaml [--run-id demo-run]
+python -m drift_attr replay --run-id demo-run [--child-run-id replay-1] [--input-override moved.csv]
 python -m drift_attr report --run-id demo-run --format markdown --out export.md
 python -m drift_attr runs --db output/drift_attr.sqlite3
 python -m drift_attr serve --demo --host 127.0.0.1 --port 8000
 ```
 
 - `validate` 只校验配置、数据、时间序列与检测器参数，不写报告或台账；`analyze` 默认生成新的 `run-...` ID，需要可复现时显式传 `--run-id`。
-- `report` 从台账定位 `report_json` 产物并重新渲染；`runs` 打印运行列表；`serve` 仅允许本机地址，错误主机名返回 `E_WEB_HOST`。
+- `report` 从台账定位 `report_json` 产物并重新渲染；`replay` 从规则快照与输入绑定重跑检测和归因（不是格式转换）；`runs` 打印运行列表；`serve` 仅允许本机地址，错误主机名返回 `E_WEB_HOST`。
 
 Web 路由：
 

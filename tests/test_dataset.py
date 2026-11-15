@@ -1,4 +1,5 @@
 from dataclasses import replace
+import hashlib
 
 import pytest
 
@@ -113,3 +114,43 @@ def test_wide_adapter(tmp_path):
         ("visits", 10.0), ("orders", 3.0), ("visits", 12.0), ("orders", 4.0)
     }
     assert all(row.dimension_name == "region" for row in dataset.rows)
+
+
+def test_dataset_carries_exact_raw_bytes_and_sha(tmp_path):
+    body = (
+        "date,metric,dimension_name,dimension_value,value\n"
+        "2025-01-01,orders,channel,region_alpha,5\n"
+        "2025-01-02,orders,channel,region_alpha,10\n"
+    )
+    path = write_csv(tmp_path / "data.csv", body.split("\n", 1)[1])
+    raw = path.read_bytes()
+    dataset = load_dataset(long_cfg(path))
+    assert dataset.raw_bytes == raw
+    assert dataset.raw_sha256 == hashlib.sha256(raw).hexdigest()
+    # Reordered rows keep the canonical fingerprint but change the raw SHA.
+    reordered = tmp_path / "reordered.csv"
+    reordered.write_bytes(
+        b"date,metric,dimension_name,dimension_value,value\n"
+        b"2025-01-02,orders,channel,region_alpha,10\n"
+        b"2025-01-01,orders,channel,region_alpha,5\n"
+    )
+    other = load_dataset(long_cfg(reordered))
+    assert other.fingerprint == dataset.fingerprint
+    assert other.raw_sha256 != dataset.raw_sha256
+
+
+def test_parse_dataset_bytes_never_touches_source_again(tmp_path):
+    path = write_csv(
+        tmp_path / "data.csv",
+        "2025-01-01,orders,channel,region_alpha,5\n"
+        "2025-01-02,orders,channel,region_alpha,10\n",
+    )
+    cfg = long_cfg(path)
+    sealed = path.read_bytes()
+    from drift_attr.dataset import parse_dataset_bytes
+
+    dataset = parse_dataset_bytes(sealed, cfg, "data.csv", resolved_path=path)
+    # Deleting the source after the read cannot affect parsing of the bytes.
+    path.unlink()
+    assert dataset.row_count == 2 and dataset.raw_bytes == sealed
+    assert dataset.raw_sha256 == hashlib.sha256(sealed).hexdigest()

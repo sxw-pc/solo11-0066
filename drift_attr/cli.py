@@ -9,7 +9,7 @@ from drift_attr import store
 from drift_attr.config import load_config
 from drift_attr.dataset import resolve_path
 from drift_attr.demo import ensure_demo, write_demo_fixtures
-from drift_attr.engine import analyze, validate
+from drift_attr.engine import analyze, replay_run, validate
 from drift_attr.errors import DriftError, fail
 from drift_attr.html_report import report_to_html
 from drift_attr.report import report_to_markdown
@@ -34,6 +34,28 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     result = analyze(args.config, run_id=args.run_id, base_dir=Path.cwd())
     print(f"run_id: {result.run_id}")
     print(f"dataset_fingerprint: {result.dataset.fingerprint}")
+    print(f"config_fingerprint: {result.config.fingerprint}")
+    print(
+        f"anomalies: {len(result.groups)} groups / "
+        f"{len(result.events)} raw events / "
+        f"{sum(len(group.attribution_items) for group in result.groups)} attribution items"
+    )
+    print(f"database: {result.database_path}")
+    print(f"run_dir: {result.run_dir}")
+    for artifact in result.artifacts:
+        print(f"artifact[{artifact['kind']}]: {artifact['path']}")
+    return 0
+def _cmd_replay(args: argparse.Namespace) -> int:
+    result = replay_run(
+        args.db, args.run_id, run_id=args.child_run_id, base_dir=Path.cwd(),
+        input_override=args.input_override,
+    )
+    print(f"parent_run_id: {args.run_id}")
+    print(f"replay_of: {result.replay_of}")
+    print(f"run_id: {result.run_id}")
+    print(f"input_policy: {result.input_policy}")
+    print(f"dataset_fingerprint: {result.dataset.fingerprint}")
+    print(f"raw_sha256: {result.dataset.raw_sha256}")
     print(f"config_fingerprint: {result.config.fingerprint}")
     print(
         f"anomalies: {len(result.groups)} groups / "
@@ -141,6 +163,17 @@ def build_parser() -> argparse.ArgumentParser:
     report_cmd.add_argument("--format", choices=("json", "markdown", "html"), default="json")
     report_cmd.add_argument("--out", default=None)
     report_cmd.set_defaults(func=_cmd_report)
+    replay_cmd = sub.add_parser(
+        "replay", help="按父运行的规则快照与输入绑定重新执行完整分析"
+    )
+    replay_cmd.add_argument("--run-id", required=True, help="父运行 ID")
+    replay_cmd.add_argument("--db", default=DEFAULT_DB)
+    replay_cmd.add_argument("--child-run-id", default=None, help="子运行 ID，缺省自动生成")
+    replay_cmd.add_argument(
+        "--input-override", default=None,
+        help="reference 策略下源文件移动后的替代路径；snapshot 策略拒绝此参数",
+    )
+    replay_cmd.set_defaults(func=_cmd_replay)
     runs_cmd = sub.add_parser("runs", help="列出本地运行台账")
     runs_cmd.add_argument("--db", default=DEFAULT_DB)
     runs_cmd.add_argument("--json", action="store_true")
