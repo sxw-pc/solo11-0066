@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import secrets
 from pathlib import Path
 from typing import Any
 
 from flask import Flask, Response, abort, jsonify, render_template, request, url_for
+from itsdangerous import BadSignature, URLSafeTimedSerializer
 
 from drift_attr import store
+from drift_attr.store import GROUP_KEY_COLUMNS
 
 
 MIME_TYPES = {
@@ -17,6 +20,9 @@ MIME_TYPES = {
     "yaml": "text/yaml; charset=utf-8",
 }
 ALLOWED_HOSTS = {"127.0.0.1", "localhost"}
+PAGE_SIZE = 50
+# Cursors are meant for a continuous paging session, not permanent bookmarks.
+CURSOR_MAX_AGE_SECONDS = 60 * 60 * 12
 
 
 def _group_view(events: list[dict[str, Any]], items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -63,11 +69,44 @@ def create_app(
     project_root: str | Path,
 ) -> Flask:
     app = Flask(__name__)
+    # Per-process signing key: paging cursors only need to be unforgeable while
+    # the viewer process is alive; restarting simply forces a fresh first page.
     app.config.update(
         DATABASE_PATH=str(Path(database_path)),
         OUTPUT_ROOT=Path(output_root).resolve(),
         PROJECT_ROOT=Path(project_root).resolve(),
+        CURSOR_SECRET=secrets.token_urlsafe(32),
     )
+
+    def _serializer() -> URLSafeTimedSerializer:
+        return URLSafeTimedSerializer(app.config["CURSOR_SECRET"], salt="run-page-cursor")
+
+    def _decode_cursor(
+        token: str | None, version_token: str
+    ) -> tuple[tuple[Any, ...] | None, bool, int]:
+        """Decode a keyset cursor, binding it to the run's current generation.
+
+        Returns ``(after, stale, page_number)``. A missing, malformed, expired or
+        wrong-generation cursor yields ``(None, stale, 1)`` and the view restarts
+        from the first page rather than mixing two run generations.
+        """
+        if not token:
+            return None, False, 1
+        try:
+            payload = _serializer().loads(token, max_age=CURSOR_MAX_AGE_SECONDS)
+        except BadSignature:
+            return None, True, 1
+        if not isinstance(payload, dict) or set(payload) != {"v", "k", "p"}:
+            return None, True, 1
+        if payload["v"] != version_token or not isinstance(payload["k"], list):
+            return None, True, 1
+        if len(payload["k"]) != len(GROUP_KEY_COLUMNS) or not all(
+            isinstance(part, str) for part in payload["k"]
+        ):
+            return None, True, 1
+        if not isinstance(payload["p"], int) or payload["p"] < 1:
+            return None, True, 1
+        return tuple(payload["k"]), False, payload["p"]
 
     @app.before_request
     def local_only() -> None:
@@ -96,15 +135,54 @@ def create_app(
         run = store.get_run(app.config["DATABASE_PATH"], run_id)
         if run is None:
             abort(404)
-        events = store.get_events(app.config["DATABASE_PATH"], run_id)
-        items = store.get_attribution_items(app.config["DATABASE_PATH"], run_id)
+        version_token = store.run_version_token(run)
+        after, cursor_stale, page_number = _decode_cursor(
+            request.args.get("after"), version_token
+        )
+
+        # One keyset page only: ordered group keys first, then all rows of those
+        # groups. The full-run get_events/get_attribution_items are never called.
+        page = store.get_run_detail_page(
+            app.config["DATABASE_PATH"],
+            run_id,
+            page_size=PAGE_SIZE,
+            after=after,
+        )
+        groups = _group_view(page["events"], page["attribution_items"])
         artifacts = store.get_artifacts(app.config["DATABASE_PATH"], run_id)
+
+        next_url = None
+        next_page = page_number
+        if page["has_more"] and page["next_after"] is not None:
+            next_page = page_number + 1
+            token = _serializer().dumps({
+                "v": version_token,
+                "k": list(page["next_after"]),
+                "p": next_page,
+            })
+            next_url = url_for("run_detail", run_id=run_id, after=token)
+
+        total_groups = run["anomaly_count"]
+        shown = len(groups)
+        if shown:
+            range_start = (page_number - 1) * PAGE_SIZE + 1
+            range_end = (page_number - 1) * PAGE_SIZE + shown
+        else:
+            range_start = range_end = 0
         return render_template(
             "run_detail.html",
             run=run,
-            groups=_group_view(events, items),
+            groups=groups,
             artifacts=artifacts,
             active="runs",
+            page_size=PAGE_SIZE,
+            page_number=page_number,
+            total_groups=total_groups,
+            range_start=range_start,
+            range_end=range_end,
+            next_url=next_url,
+            next_page=next_page,
+            cursor_stale=cursor_stale,
         )
 
     @app.get("/runs/<run_id>/artifact/<kind>")

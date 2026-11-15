@@ -32,7 +32,15 @@
 </section>
 
 <section class="panel">
-  <div class="panel-head"><h2>异常与归因</h2><span class="muted">{{ groups|length }} 个异常位置</span></div>
+  <div class="panel-head">
+    <h2>异常与归因</h2>
+    <span class="muted">
+      {% if total_groups > 0 %}第 {{ range_start }}–{{ range_end }} 个，共 {{ total_groups }} 个异常位置{% else %}{{ total_groups }} 个异常位置{% endif %}
+    </span>
+  </div>
+  {% if cursor_stale %}
+  <p class="muted">翻页游标已过期或该运行已被重跑，已为你从第一页重新开始。</p>
+  {% endif %}
   {% if groups %}
     {% for group in groups %}
     <article class="anomaly-card">
@@ -81,6 +89,14 @@
     {% endfor %}
   {% else %}
     <div class="empty-inline"><strong>本次运行没有异常。</strong><span>台账与产物仍可用于复核。</span></div>
+  {% endif %}
+  {% if next_url %}
+  <nav class="pager" aria-label="异常位置分页">
+    <span class="muted">本页 {{ groups|length }} 个位置 · 第 {{ page_number }} 页{% if total_groups %} / 共 {{ ((total_groups + page_size - 1) // page_size) }} 页{% endif %}</span>
+    <a class="text-link" href="{{ next_url }}">加载下一页（第 {{ next_page }} 页）→</a>
+  </nav>
+  {% elif groups %}
+  <p class="muted pager">已展示全部 {{ total_groups }} 个异常位置（第 {{ page_number }} 页，共 {{ page_number }} 页）。</p>
   {% endif %}
 </section>
 

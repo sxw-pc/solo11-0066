@@ -49,7 +49,21 @@ CREATE TABLE IF NOT EXISTS artifacts (
 CREATE INDEX IF NOT EXISTS idx_events_run_date ON anomaly_events(run_id, anomaly_date, group_id);
 CREATE INDEX IF NOT EXISTS idx_attr_run_group ON attribution_items(run_id, group_id, attribution_dimension, rank);
 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id, kind);
+-- Group-level keyset pagination: ordered, distinct anomaly locations per run.
+-- The leading run_id column keeps every paging query scoped to one run's slice.
+CREATE INDEX IF NOT EXISTS idx_events_run_group_keys ON anomaly_events(
+ run_id, anomaly_date, metric, dimension_name, dimension_value, group_id);
+-- Fetch every detector event of a page's groups without a full-run scan.
+CREATE INDEX IF NOT EXISTS idx_events_run_group_id ON anomaly_events(
+ run_id, group_id, detector, rule_name);
 """
+
+# Ordered columns that identify one anomaly location inside a run. group_id is a
+# deterministic digest of the four location columns (see normalize.make_group_id),
+# so it only acts as a deterministic tie-breaker for the keyset cursor.
+GROUP_KEY_COLUMNS: tuple[str, ...] = (
+    "anomaly_date", "metric", "dimension_name", "dimension_value", "group_id",
+)
 
 
 def _connect(db_path: str | Path) -> sqlite3.Connection:
@@ -200,6 +214,123 @@ def get_artifacts(db_path: str | Path, run_id: str) -> list[dict[str, Any]]:
     return _query(
         db_path, "SELECT * FROM artifacts WHERE run_id = ? ORDER BY kind", (run_id,)
     )
+
+
+def run_version_token(run: dict[str, Any]) -> str:
+    """Fingerprint of a run record generation.
+
+    ``save_run`` replaces every row of a run atomically; paging cursors carry this
+    token so a cursor produced by an older generation can be detected instead of
+    silently mixing old and new anomaly groups in one paging sequence.
+    """
+    fields = (
+        "started_at", "finished_at", "status", "config_fingerprint",
+        "dataset_fingerprint", "rule_fingerprint", "event_count",
+        "anomaly_count", "attribution_count",
+    )
+    payload = "\x1f".join(str(run.get(field)) for field in fields)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
+
+
+def _group_key_clause(after: tuple[Any, ...] | None) -> tuple[str, tuple[Any, ...]]:
+    """Build a lexicographic keyset predicate from the previous page's last key."""
+    if not after:
+        return "", ()
+    columns = ", ".join(GROUP_KEY_COLUMNS)
+    placeholders = ", ".join("?" for _ in GROUP_KEY_COLUMNS)
+    return f" AND ({columns}) > ({placeholders})", tuple(after)
+
+
+def get_group_page(
+    db_path: str | Path,
+    run_id: str,
+    *,
+    page_size: int,
+    after: tuple[Any, ...] | None = None,
+) -> list[dict[str, Any]]:
+    """Return up to ``page_size + 1`` ordered group keys for one run.
+
+    The extra row (when present) signals that another page exists; callers drop it
+    before fetching the page's events. The query is served by the covering index
+    ``idx_events_run_group_keys`` and never sorts or scans another run's rows.
+    """
+    keyset_sql, keyset_params = _group_key_clause(after)
+    columns = ", ".join(GROUP_KEY_COLUMNS)
+    sql = f"""SELECT DISTINCT {columns} FROM anomaly_events
+    WHERE run_id = ?{keyset_sql}
+    ORDER BY {columns} LIMIT ?"""
+    return _query(db_path, sql, (run_id, *keyset_params, page_size + 1))
+
+
+def get_events_for_groups(
+    db_path: str | Path, run_id: str, group_ids: list[str]
+) -> list[dict[str, Any]]:
+    """Fetch every detector event of the given groups (whole groups, never split)."""
+    if not group_ids:
+        return []
+    placeholders = ", ".join("?" for _ in group_ids)
+    rows = _query(
+        db_path,
+        f"""SELECT * FROM anomaly_events WHERE run_id = ?
+        AND group_id IN ({placeholders})
+        ORDER BY group_id, detector, rule_name""",
+        (run_id, *group_ids),
+    )
+    for row in rows:
+        row["evidence"] = json.loads(row.pop("evidence_json"))
+    return rows
+
+
+def get_attribution_items_for_groups(
+    db_path: str | Path, run_id: str, group_ids: list[str]
+) -> list[dict[str, Any]]:
+    """Fetch every attribution item of the given groups, including empty groups."""
+    if not group_ids:
+        return []
+    placeholders = ", ".join("?" for _ in group_ids)
+    rows = _query(
+        db_path,
+        f"""SELECT * FROM attribution_items WHERE run_id = ?
+        AND group_id IN ({placeholders})
+        ORDER BY group_id, attribution_dimension, rank, dimension_value""",
+        (run_id, *group_ids),
+    )
+    for row in rows:
+        row["is_other"] = bool(row["is_other"])
+    return rows
+
+
+def get_run_detail_page(
+    db_path: str | Path,
+    run_id: str,
+    *,
+    page_size: int,
+    after: tuple[Any, ...] | None = None,
+) -> dict[str, Any]:
+    """One keyset page of fully-assembled anomaly groups.
+
+    Only the group keys of this page are selected first; all detector events and
+    attribution items are then fetched for exactly those groups, so reads scale
+    with the page rather than with the whole run. Groups without any attribution
+    items are returned with an empty ``attribution`` mapping and must not be
+    presented as "unloaded" by callers.
+    """
+    keys = get_group_page(db_path, run_id, page_size=page_size, after=after)
+    has_more = len(keys) > page_size
+    page_keys = keys[:page_size]
+    group_ids = [key["group_id"] for key in page_keys]
+    events = get_events_for_groups(db_path, run_id, group_ids)
+    items = get_attribution_items_for_groups(db_path, run_id, group_ids)
+    return {
+        "group_keys": page_keys,
+        "group_ids": group_ids,
+        "events": events,
+        "attribution_items": items,
+        "has_more": has_more,
+        "next_after": tuple(page_keys[-1][column] for column in GROUP_KEY_COLUMNS)
+        if page_keys
+        else None,
+    }
 
 
 def get_rule_snapshot(db_path: str | Path, run_id: str) -> str | None:
