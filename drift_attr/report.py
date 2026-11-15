@@ -11,10 +11,22 @@ from drift_attr.schema import (
     AnomalyEvent,
     AnomalyGroup,
     SEVERITIES,
+    context_to_dict,
     event_to_dict,
     item_to_dict,
 )
 from drift_attr.timeseries import BuildResult, series_summary
+
+MISSING_POLICY_NOTES = {
+    "zero_fill": (
+        "未记录的日期按 0 计入完整日历窗口；"
+        "总变化为全部类别贡献之和，贡献率可加和。"
+    ),
+    "common_dates": (
+        "仅在所有可比类别共同可观测的日期上归因；"
+        "总变化为可比类别贡献之和，不可比类别不补零、不计入总变化。"
+    ),
+}
 def display_path(path: Path, base_dir: Path) -> str:
     try:
         return path.resolve().relative_to(base_dir.resolve()).as_posix()
@@ -59,6 +71,10 @@ def _group_dict(
         "window_start": group.window_start.isoformat(),
         "window_end": group.window_end.isoformat(),
         "attribution_windows": _window_dict(group, timeline, cfg),
+        "attribution_contexts": {
+            dimension: context_to_dict(context)
+            for dimension, context in group.attribution_contexts.items()
+        },
         "narrative": group.narrative,
         "attribution": _group_attribution(group, cfg),
         "raw_events": [event_to_dict(event) for event in group.events],
@@ -122,6 +138,8 @@ def build_report(
             "baseline_window": config.attribution.baseline_window,
             "comparison_window": config.attribution.comparison_window,
             "other_label": config.attribution.other_label,
+            "missing_policy": config.attribution.missing_policy,
+            "missing_policy_note": MISSING_POLICY_NOTES[config.attribution.missing_policy],
             "formula": "contribution = comparison_sum - baseline_sum; rate = contribution / total_change",
         },
         "summary": {
@@ -138,7 +156,9 @@ def build_report(
 def attribution_document(report: dict[str, Any]) -> dict[str, Any]:
     run = report["run"]
     rows: list[dict[str, Any]] = []
+    contexts: dict[str, dict[str, Any]] = {}
     for group in report["anomalies"]:
+        contexts[group["group_id"]] = group["attribution_contexts"]
         for dimension, items in group["attribution"].items():
             for item in items:
                 rows.append(
@@ -157,7 +177,9 @@ def attribution_document(report: dict[str, Any]) -> dict[str, Any]:
         "run_id": run["run_id"],
         "config_fingerprint": run["config_fingerprint"],
         "dataset_fingerprint": run["dataset_fingerprint"],
+        "missing_policy": report["attribution_policy"]["missing_policy"],
         "items": rows,
+        "contexts": contexts,
     }
 def _md(value: object) -> str:
     return html.escape(str(value), quote=False).replace("|", "\\|").replace("\n", " ")
@@ -170,9 +192,40 @@ def _window_text(window: dict[str, Any] | None) -> str:
         f"{window['comparison_start']} ~ {window['comparison_end']} "
         f"({window['comparison_periods']} 期)"
     )
+def _coverage_text(coverage: dict[str, Any]) -> str:
+    def side(stats: dict[str, Any] | None) -> str:
+        if not stats:
+            return "n/a"
+        text = f"{stats['observed']}/{stats['expected']}"
+        if stats.get("imputed"):
+            text += f"(补{stats['imputed']})"
+        return text
+    if not coverage:
+        return "n/a"
+    return f"{side(coverage.get('baseline'))} / {side(coverage.get('comparison'))}"
+def _context_lines(group: dict[str, Any]) -> list[str]:
+    window = group["attribution_windows"] or {}
+    lines: list[str] = []
+    for dimension, context in group["attribution_contexts"].items():
+        baseline_dates = "、".join(context["baseline_dates"]) or "（空）"
+        comparison_dates = "、".join(context["comparison_dates"]) or "（空）"
+        baseline_expected = window.get("baseline_periods", "?")
+        comparison_expected = window.get("comparison_periods", "?")
+        if context["status"] == "ok":
+            status = "正常"
+        else:
+            status = f"不可比（{context['status_reason']}）"
+        lines.append(
+            f"- 维度 {_md(dimension)} 实际归因日期：对照 {_md(baseline_dates)} "
+            f"（{context['baseline_periods']}/{baseline_expected} 期）→ 异常 "
+            f"{_md(comparison_dates)}（{context['comparison_periods']}/{comparison_expected} 期）；"
+            f"状态：{_md(status)}"
+        )
+    return lines
 def report_to_markdown(report: dict[str, Any]) -> str:
     run = report["run"]
     summary = report["summary"]
+    policy = report["attribution_policy"]
     lines = [
         "# 漂移归因台分析报告",
         "",
@@ -191,6 +244,7 @@ def report_to_markdown(report: dict[str, Any]) -> str:
         f"| 合并异常位置 | {summary['anomaly_count']} |",
         f"| 归因明细 | {summary['attribution_item_count']} |",
         f"| 严重度分布 | {_md(summary['severity_counts'])} |",
+        f"| 缺测口径 | {_md(policy['missing_policy'])}：{_md(policy['missing_policy_note'])} |",
         "",
         "## 异常与归因",
         "",
@@ -207,20 +261,30 @@ def report_to_markdown(report: dict[str, Any]) -> str:
                 f"- 命中检测器：{_md(', '.join(group['detectors']))}",
                 f"- 规则：{_md(', '.join(group['rule_names']))}",
                 f"- 归因窗口：{_md(_window_text(group['attribution_windows']))}",
+                *_context_lines(group),
                 f"- 解释：{_md(group['narrative'])}",
                 "",
-                "| 排名 | 维度值 | 异常窗口 | 对照窗口 | 贡献额 | 贡献率 | 其他项 |",
-                "| ---: | --- | ---: | ---: | ---: | ---: | --- |",
+                "| 排名 | 维度值 | 异常窗口 | 对照窗口 | 贡献额 | 贡献率 | 覆盖（对照/异常） | 状态 | 其他项 |",
+                "| ---: | --- | ---: | ---: | ---: | ---: | --- | --- | --- |",
             ]
         )
         for dimension, items in group["attribution"].items():
             for item in items:
                 rate = item["contribution_rate"]
                 rate_text = "n/a" if rate is None else f"{rate * 100:.2f}%"
+                if item["status"] == "ok":
+                    current_text = str(item["current_value"])
+                    baseline_text = str(item["baseline_value"])
+                    contribution_text = f"{item['contribution']:+.6f}"
+                    status_text = "正常"
+                else:
+                    current_text = baseline_text = contribution_text = "—"
+                    status_text = f"不可比：{item['status_reason']}"
                 lines.append(
                     f"| {item['rank']} | {_md(dimension)}={_md(item['dimension_value'])} | "
-                    f"{item['current_value']} | {item['baseline_value']} | "
-                    f"{item['contribution']:+.6f} | {rate_text} | "
+                    f"{current_text} | {baseline_text} | "
+                    f"{contribution_text} | {rate_text} | "
+                    f"{_md(_coverage_text(item['coverage']))} | {_md(status_text)} | "
                     f"{'是' if item['is_other'] else '否'} |"
                 )
         lines.extend(["", "证据：", ""])

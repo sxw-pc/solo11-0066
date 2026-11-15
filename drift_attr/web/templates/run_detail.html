@@ -64,9 +64,13 @@
               <tr class="{{ 'other-row' if item.is_other else '' }}">
                 <td>{{ item.rank }}</td>
                 <td>{{ item.dimension_value }}{% if item.is_other %} <span class="muted">(剩余项)</span>{% endif %}</td>
+                {% if item.contribution is none %}
+                <td class="num" colspan="3">不可比</td>
+                {% else %}
                 <td class="num">{{ "%.4f"|format(item.current_value) }}</td>
                 <td class="num">{{ "%.4f"|format(item.baseline_value) }}</td>
                 <td class="num">{{ "%+.4f"|format(item.contribution) }}</td>
+                {% endif %}
                 <td class="num">{% if item.contribution_rate is none %}n/a{% else %}{{ "%.2f%%"|format(item.contribution_rate * 100) }}{% endif %}</td>
               </tr>
               {% endfor %}

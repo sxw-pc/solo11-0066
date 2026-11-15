@@ -134,6 +134,7 @@ attribution:
   baseline_window: 7
   comparison_window: 7
   other_label: "其他"
+  missing_policy: zero_fill   # zero_fill | common_dates
 
 output:
   directory: output
@@ -208,7 +209,8 @@ contribution_rate = contribution / total_change   （total_change = 0 时为 nul
 
 实现保证：
 
-- 缺失日期按配置的补值策略进入序列；缺失维度值在某一窗口按 0 参与贡献。
+- 缺失日期按配置的补值策略进入序列；缺测归因口径由 `attribution.missing_policy` 决定：`zero_fill`（默认）把无观测日期按 0 计入完整日历窗口，`common_dates` 只在所有可比类别共同可观测的日期交集上归因，不可比类别输出 `status: incomparable` 与原因而不伪造数值。
+- 每个归因项输出两个窗口的覆盖统计（应有/观测/插补/缺失/实际使用日期数与覆盖率），报告同时记录实际用于归因的日期集合，真实 0 值与无观测始终区分。
 - 正负贡献可以混合；贡献率可大于 100% 或小于 -100%，这是总变化较小或正负抵消时的正常现象。
 - 总变化为 0 时，所有贡献率输出 `null`，公式标记 `undefined`，解释文本写明“不适用（总变化为 0）”。
 - 排序稳定：贡献额绝对值降序，再按维度值字典序升序。

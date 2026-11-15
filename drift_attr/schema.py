@@ -65,6 +65,7 @@ class AnomalyEvent:
             self.dimension_value,
             self.date,
         )
+ITEM_STATUSES = ("ok", "incomparable")
 @dataclass
 class AttributionItem:
     item_id: str
@@ -72,14 +73,27 @@ class AttributionItem:
     event_id: str
     attribution_dimension: str
     dimension_value: str
-    current_value: float
-    baseline_value: float
-    contribution: float
+    current_value: float | None
+    baseline_value: float | None
+    contribution: float | None
     contribution_rate: float | None
     rank: int
     is_other: bool
     formula: str
     explanation: str
+    status: str = "ok"
+    status_reason: str | None = None
+    coverage: dict[str, Any] = field(default_factory=dict)
+@dataclass
+class AttributionContext:
+    """Per-dimension record of the dates and policy actually used."""
+    attribution_dimension: str
+    missing_policy: str
+    status: str
+    status_reason: str | None
+    baseline_dates: tuple[date, ...]
+    comparison_dates: tuple[date, ...]
+    total_change: float | None
 @dataclass
 class AnomalyGroup:
     group_id: str
@@ -91,6 +105,7 @@ class AnomalyGroup:
     severity: str
     events: list[AnomalyEvent]
     attribution_items: list[AttributionItem] = field(default_factory=list)
+    attribution_contexts: dict[str, AttributionContext] = field(default_factory=dict)
     narrative: str = ""
     @property
     def detectors(self) -> list[str]:
@@ -136,6 +151,21 @@ def item_to_dict(item: AttributionItem) -> dict[str, Any]:
         "contribution_rate": stable_float(item.contribution_rate),
         "rank": item.rank,
         "is_other": item.is_other,
+        "status": item.status,
+        "status_reason": item.status_reason,
+        "coverage": item.coverage,
         "formula": item.formula,
         "explanation": item.explanation,
+    }
+def context_to_dict(context: AttributionContext) -> dict[str, Any]:
+    return {
+        "attribution_dimension": context.attribution_dimension,
+        "missing_policy": context.missing_policy,
+        "status": context.status,
+        "status_reason": context.status_reason,
+        "baseline_dates": [period.isoformat() for period in context.baseline_dates],
+        "comparison_dates": [period.isoformat() for period in context.comparison_dates],
+        "baseline_periods": len(context.baseline_dates),
+        "comparison_periods": len(context.comparison_dates),
+        "total_change": stable_float(context.total_change),
     }

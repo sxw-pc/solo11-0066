@@ -145,6 +145,7 @@ detection:
 | `baseline_window` | int | `7` | 异常窗口之前的基期周期数，1-365 |
 | `comparison_window` | int | `7` | 截至异常日期的异常/对比周期数，1-365 |
 | `other_label` | string | `其他` | 超出 Top-N 的剩余项标签 |
+| `missing_policy` | `zero_fill` / `common_dates` | `zero_fill` | 缺测归因口径：缺测即零，或只在共同可观测日期交集上归因 |
 
 窗口按 `series.granularity` 的周期数计算。窗口顺序与公式见 [ATTRIBUTION.md](ATTRIBUTION.md)。
 

@@ -38,6 +38,7 @@ class DetectorRule:
     dimension_values: tuple[str, ...]
     severity: str
     params: dict[str, Any]
+MISSING_POLICIES = ("zero_fill", "common_dates")
 @dataclass(frozen=True)
 class AttributionConfig:
     dimensions: tuple[str, ...]
@@ -45,6 +46,7 @@ class AttributionConfig:
     baseline_window: int
     comparison_window: int
     other_label: str
+    missing_policy: str = "zero_fill"
 @dataclass(frozen=True)
 class OutputConfig:
     directory: str
@@ -67,7 +69,10 @@ DATASET_KEYS = {
     "dimension_field", "dimension_name", "metric_columns",
 }
 SERIES_KEYS = {"granularity", "aggregate", "fill_missing", "week_start"}
-ATTRIBUTION_KEYS = {"dimensions", "top_n", "baseline_window", "comparison_window", "other_label"}
+ATTRIBUTION_KEYS = {
+    "dimensions", "top_n", "baseline_window", "comparison_window", "other_label",
+    "missing_policy",
+}
 OUTPUT_KEYS = {"directory", "database"}
 def _mapping(value: Any, field_name: str) -> Mapping[str, Any]:
     if not isinstance(value, dict):
@@ -198,10 +203,18 @@ def _attribution(raw: Mapping[str, Any]) -> AttributionConfig:
     comparison = _integer(raw, "comparison_window", "attribution", 7, 1, 365)
     if baseline < 1 or comparison < 1:
         fail("E_CONFIG_WINDOW", "窗口长度必须 >= 1", field="attribution.baseline_window")
+    missing_policy = _text(raw, "missing_policy", "attribution", "zero_fill").lower()
+    if missing_policy not in MISSING_POLICIES:
+        fail(
+            "E_CONFIG_SCHEMA",
+            f"missing_policy 必须是 {'/'.join(MISSING_POLICIES)}",
+            field="attribution.missing_policy",
+        )
     return AttributionConfig(
         dimensions=dimensions, top_n=top_n, baseline_window=baseline,
         comparison_window=comparison,
         other_label=_text(raw, "other_label", "attribution", "其他"),
+        missing_policy=missing_policy,
     )
 def load_config(path: str | Path) -> AppConfig:
     source = Path(path)

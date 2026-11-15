@@ -36,10 +36,24 @@ contribution_rate(v) = contribution(v) / total_change
 聚合值来自 `timeseries` 阶段生成的序列：
 - 同一周期多行按 `series.aggregate`（`sum` / `mean`）合并；
 - 缺失周期按 `series.fill_missing` 补值；
-- `zero` / `previous` 产生的补值参与归因，报告 `series.imputed_points` 记录补值规模；
-- `drop` 留下的缺失周期在该归因窗口中按 0 计入。
+- `zero` / `previous` 产生的补值（`Point.imputed = true`）是否参与归因，由 `attribution.missing_policy` 决定；
+- `drop` 留下的缺失周期没有任何数据点，归因阶段能区分“真实记录为 0”与“当天无观测”。
 
-某维度值只在一个窗口出现时，另一窗口值按 0 处理。例如只在新窗口出现的维度值贡献额等于其当前值；只在旧窗口出现的维度值贡献额为负。
+## 缺测归因口径（missing_policy）
+
+`attribution.missing_policy` 决定缺测日期如何进入归因，两种口径在业务上都成立，会改变可用窗口、贡献排名与不可比状态：
+
+- **`zero_fill`（默认，缺测即零）**：按完整日历窗口累计。没有数据点的日期按 0 计入，表达“未记录等同无业务值”的假设；`zero` / `previous` 插补值参与求和。总变化为全部类别贡献之和，贡献率可加和。
+- **`common_dates`（共同日期交集）**：先在每个窗口内取所有“可比类别”（两个窗口都至少有一天真实观测的类别）真实观测日期的交集，所有类别只在完全相同的日期集合上求和。插补值不算真实观测，不进入交集。总变化只由可比类别的贡献构成；未知值不暗中补零。
+
+在 `common_dates` 下：
+- 只在一个窗口出现的类别（新出现 / 消失）标记为 `incomparable`，不伪造数值贡献；
+- 可比类别在某窗口没有共同可观测日期（空交集）时，整个维度标记为 `incomparable` 并给出原因；
+- 不可比项的 `current_value` / `baseline_value` / `contribution` / `contribution_rate` 均为 `null`，不参与排名与总变化。
+
+每个归因项都带 `coverage` 统计（对照 / 异常两个窗口分别给出）：`expected`（应有日期数）、`observed`（真实观测数，真实 0 值计入）、`imputed`（插补数）、`missing`（缺失数）、`used`（实际参与求和的日期数）与 `coverage`（观测覆盖率）。报告同时在每个异常位置记录该维度实际用于归因的日期集合，用户可以判断这次归因能否横向比较。
+
+某维度值只在一个窗口出现时，`zero_fill` 口径把另一窗口值按 0 处理。例如只在新窗口出现的维度值贡献额等于其当前值；只在旧窗口出现的维度值贡献额为负。
 
 ## 总变化为 0
 
@@ -100,6 +114,9 @@ contribution_rate(v) = contribution(v) / total_change
 | `contribution_rate` | 贡献率，总变化为 0 时 null |
 | `rank` | 排名 |
 | `is_other` | 是否为剩余项 |
+| `status` | `ok` / `incomparable`；不可比项不输出数值贡献 |
+| `status_reason` | 不可比原因（可比项为 null） |
+| `coverage` | 两个窗口的应有/观测/插补/缺失/实际使用日期数与覆盖率 |
 | `formula` | 当前值、基期值、贡献额与贡献率的公式摘要 |
 | `explanation` | 中文模板化解释，不含外部模型调用 |
 

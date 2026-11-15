@@ -36,6 +36,19 @@ def _e(value: object) -> str:
     return html.escape(str(value), quote=True)
 def _rate(value: float | None) -> str:
     return "n/a" if value is None else f"{value * 100:.2f}%"
+def _num(value: float | None, fmt: str = "{}") -> str:
+    return "—" if value is None else fmt.format(value)
+def _coverage_text(coverage: dict[str, Any]) -> str:
+    def side(stats: dict[str, Any] | None) -> str:
+        if not stats:
+            return "n/a"
+        text = f"{stats['observed']}/{stats['expected']}"
+        if stats.get("imputed"):
+            text += f"(补{stats['imputed']})"
+        return text
+    if not coverage:
+        return "n/a"
+    return f"{side(coverage.get('baseline'))} / {side(coverage.get('comparison'))}"
 def _summary(report: dict[str, Any]) -> str:
     summary = report["summary"]
     cards = [
@@ -58,14 +71,20 @@ def _attribution_table(group: dict[str, Any]) -> str:
     rows: list[str] = []
     for dimension, items in group["attribution"].items():
         for item in items:
+            if item["status"] == "ok":
+                status_text = "正常"
+            else:
+                status_text = f"不可比：{item['status_reason']}"
             rows.append(
                 "<tr>"
                 f"<td>{item['rank']}</td>"
                 f"<td>{_e(dimension)}={_e(item['dimension_value'])}</td>"
-                f"<td class=\"num\">{item['current_value']}</td>"
-                f"<td class=\"num\">{item['baseline_value']}</td>"
-                f"<td class=\"num\">{item['contribution']:+.6f}</td>"
+                f"<td class=\"num\">{_num(item['current_value'])}</td>"
+                f"<td class=\"num\">{_num(item['baseline_value'])}</td>"
+                f"<td class=\"num\">{_num(item['contribution'], '{:+.6f}')}</td>"
                 f"<td class=\"num\">{_rate(item['contribution_rate'])}</td>"
+                f"<td>{_e(_coverage_text(item['coverage']))}</td>"
+                f"<td>{_e(status_text)}</td>"
                 f"<td>{'是' if item['is_other'] else '否'}</td>"
                 "</tr>"
             )
@@ -74,6 +93,7 @@ def _attribution_table(group: dict[str, Any]) -> str:
     return (
         "<table><thead><tr><th>排名</th><th>维度值与归因维度</th>"
         "<th>异常窗口</th><th>对照窗口</th><th>贡献额</th><th>贡献率</th>"
+        "<th>覆盖(对照/异常)</th><th>状态</th>"
         "<th>其他项</th></tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table>"
@@ -92,6 +112,16 @@ def _group_section(group: dict[str, Any]) -> str:
             f"对照 {window['baseline_start']} ~ {window['baseline_end']}；"
             f"异常 {window['comparison_start']} ~ {window['comparison_end']}"
         )
+    context_parts = []
+    for dimension, context in group["attribution_contexts"].items():
+        baseline_dates = "、".join(context["baseline_dates"]) or "（空）"
+        comparison_dates = "、".join(context["comparison_dates"]) or "（空）"
+        status = "正常" if context["status"] == "ok" else f"不可比（{context['status_reason']}）"
+        context_parts.append(
+            f"维度 {_e(dimension)}：对照 {_e(baseline_dates)} → 异常 "
+            f"{_e(comparison_dates)}；状态：{_e(status)}"
+        )
+    context_text = "<br>".join(context_parts)
     return f"""
 <article class="anomaly">
   <h3>{_e(group['date'])} · {_e(group['metric'])} ·
@@ -101,6 +131,7 @@ def _group_section(group: dict[str, Any]) -> str:
       {_e(', '.join(group['rule_names']))}</span>
   <div class="narrative">{_e(group['narrative'])}</div>
   <p class="muted">归因窗口：{_e(window_text)}</p>
+  <p class="muted">实际归因日期：{context_text}</p>
   {_attribution_table(group)}
   <details><summary>展开原始检测证据（{len(group['raw_events'])} 条）</summary>
     <ul class="evidence">{evidence}</ul>

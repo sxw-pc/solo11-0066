@@ -97,9 +97,10 @@ def apply_group_narrative(group: AnomalyGroup) -> None:
     ]
     if first.evidence.get("summary"):
         parts.append(str(first.evidence["summary"]) + "。")
-    if group.attribution_items:
+    comparable_items = [item for item in group.attribution_items if item.status == "ok"]
+    if comparable_items:
         top = sorted(
-            group.attribution_items,
+            comparable_items,
             key=lambda item: (item.attribution_dimension, item.rank),
         )[0]
         rate = "不适用（总变化为 0）"
@@ -110,4 +111,10 @@ def apply_group_narrative(group: AnomalyGroup) -> None:
             f"按 {top.attribution_dimension} 归因，{label} 的贡献额为 "
             f"{top.contribution:+.2f}，占总变化 {rate}。"
         )
+    elif group.attribution_items:
+        reasons = sorted(
+            {item.status_reason for item in group.attribution_items if item.status_reason}
+        )
+        if reasons:
+            parts.append("归因维度均不可比：" + "；".join(reasons) + "。")
     group.narrative = " ".join(parts)

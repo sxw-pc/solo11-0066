@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS anomaly_events (
 CREATE TABLE IF NOT EXISTS attribution_items (
  item_id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
  group_id TEXT NOT NULL, event_id TEXT NOT NULL, attribution_dimension TEXT NOT NULL,
- dimension_value TEXT NOT NULL, current_value REAL NOT NULL,
- baseline_value REAL NOT NULL, contribution REAL NOT NULL, contribution_rate REAL,
+ dimension_value TEXT NOT NULL, current_value REAL,
+ baseline_value REAL, contribution REAL, contribution_rate REAL,
  rank INTEGER NOT NULL, is_other INTEGER NOT NULL, formula TEXT NOT NULL,
  explanation TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS artifacts (
