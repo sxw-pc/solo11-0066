@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>漂移归因台 · golden-run</title>
+<style>
+:root{--ink:#1f2933;--muted:#617080;--paper:#fbfaf7;--panel:#fff;--line:#dfe3e6;
+--accent:#1c6b5a;--accent-soft:#e7f2ee;--danger:#a33b2b;--danger-soft:#f8ece9}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);
+font-family:"Segoe UI","Noto Sans SC",Arial,sans-serif;line-height:1.55}
+header{background:#143d34;color:#f3faf7;padding:28px 6vw 24px}
+header h1{margin:0 0 6px;font-size:clamp(1.6rem,3vw,2.4rem);letter-spacing:.02em}
+header p{margin:2px 0;color:#cbe2da;font-size:.92rem;overflow-wrap:anywhere}
+main{max-width:1120px;margin:0 auto;padding:30px 5vw 60px}
+section{margin:0 0 26px}h2{font-size:1.2rem;border-bottom:1px solid var(--line);
+padding-bottom:8px;margin:0 0 14px}h3{margin:22px 0 6px;font-size:1.05rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.card b{display:block;font-size:1.5rem;color:var(--accent)}
+.card span{color:var(--muted);font-size:.84rem}
+.anomaly{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--danger);
+border-radius:10px;padding:16px 18px;margin:16px 0}
+.narrative{background:var(--accent-soft);padding:10px 12px;border-radius:7px;margin:10px 0}
+table{width:100%;border-collapse:collapse;background:var(--panel);font-size:.9rem}
+th,td{text-align:left;border-bottom:1px solid var(--line);padding:8px;vertical-align:top}
+th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;background:var(--danger-soft);color:var(--danger);border-radius:20px;
+padding:1px 9px;font-size:.76rem;margin-right:5px}
+.muted{color:var(--muted)}.mono{font-family:Consolas,monospace;font-size:.82rem;overflow-wrap:anywhere}
+details{margin:6px 0}summary{cursor:pointer;color:var(--accent);font-weight:600}
+ul.evidence{padding-left:20px}ul.evidence li{margin:3px 0}
+footer{color:var(--muted);font-size:.8rem;border-top:1px solid var(--line);padding-top:14px}
+@media(max-width:680px){th:nth-child(3),td:nth-child(3){display:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>漂移归因台 · 分析报告</h1>
+  <p>运行 ID：golden-run · 状态：success</p>
+  <p>配置指纹：466af8d905d7afd9f0c7d72c8e1f05c31e86d85ea70e56cfe0f04075bc47b55e</p>
+  <p>数据指纹：9df9f320873b52ae7287f4b86c59095a8c5c8c663ffa6263c2df73fa2d7951ea</p>
+  <p>开始：2026-01-02T03:04:05Z · 结束：2026-01-02T03:04:05Z</p>
+</header>
+<main>
+  <section><h2>运行概要</h2><div class="grid"><div class="card"><b>4</b><span>异常位置</span></div><div class="card"><b>4</b><span>原始事件</span></div><div class="card"><b>12</b><span>归因明细</span></div><div class="card"><b>low:0, medium:2, high:2, critical:0</b><span>严重度</span></div></div></section>
+  <section><h2>异常与维度归因</h2>
+<article class="anomaly">
+  <h3>2025-03-27 · sessions ·
+      channel=channel_web</h3>
+  <span class="tag">high</span>
+  <span class="muted">检测器：changepoint；规则：
+      sessions_level_shift_web</span>
+  <div class="narrative">2025-03-27 的 sessions （channel=channel_web）出现异常，命中检测器：changepoint。 2025-03-27 起后窗均值 898.857 较前窗均值 701.143 变化，突变分数 35.0558。 按 channel 归因，channel_web 的贡献额为 +202.00，占总变化 83.47%。</div>
+  <p class="muted">归因窗口：对照 2025-03-14 ~ 2025-03-20；异常 2025-03-21 ~ 2025-03-27</p>
+  <table><thead><tr><th>排名</th><th>维度值与归因维度</th><th>异常窗口</th><th>对照窗口</th><th>贡献额</th><th>贡献率</th><th>其他项</th></tr></thead><tbody><tr><td>1</td><td>channel=channel_web</td><td class="num">5098.0</td><td class="num">4896.0</td><td class="num">+202.000000</td><td class="num">83.47%</td><td>否</td></tr><tr><td>2</td><td>channel=channel_app</td><td class="num">3652.0</td><td class="num">3632.0</td><td class="num">+20.000000</td><td class="num">8.26%</td><td>否</td></tr><tr><td>3</td><td>channel=其他</td><td class="num">2108.0</td><td class="num">2088.0</td><td class="num">+20.000000</td><td class="num">8.26%</td><td>是</td></tr></tbody></table>
+  <details><summary>展开原始检测证据（1 条）</summary>
+    <ul class="evidence"><li><b>sessions_level_shift_web</b> / changepoint：2025-03-27 起后窗均值 898.857 较前窗均值 701.143 变化，突变分数 35.0558 <span class="muted">score=35.055766</span></li></ul>
+  </details>
+</article>
+
+<article class="anomaly">
+  <h3>2025-03-31 · orders ·
+      channel=channel_store</h3>
+  <span class="tag">high</span>
+  <span class="muted">检测器：threshold；规则：
+      low_orders_store</span>
+  <div class="narrative">2025-03-31 的 orders （channel=channel_store）出现异常，命中检测器：threshold。 2025-03-31 观测值 20 低于固定阈值 45。 按 channel 归因，channel_store 的贡献额为 -46.00，占总变化 86.79%。</div>
+  <p class="muted">归因窗口：对照 2025-03-18 ~ 2025-03-24；异常 2025-03-25 ~ 2025-03-31</p>
+  <table><thead><tr><th>排名</th><th>维度值与归因维度</th><th>异常窗口</th><th>对照窗口</th><th>贡献额</th><th>贡献率</th><th>其他项</th></tr></thead><tbody><tr><td>1</td><td>channel=channel_store</td><td class="num">440.0</td><td class="num">486.0</td><td class="num">-46.000000</td><td class="num">86.79%</td><td>否</td></tr><tr><td>2</td><td>channel=channel_web</td><td class="num">834.0</td><td class="num">842.0</td><td class="num">-8.000000</td><td class="num">15.09%</td><td>否</td></tr><tr><td>3</td><td>channel=其他</td><td class="num">631.0</td><td class="num">630.0</td><td class="num">+1.000000</td><td class="num">-1.89%</td><td>是</td></tr></tbody></table>
+  <details><summary>展开原始检测证据（1 条）</summary>
+    <ul class="evidence"><li><b>low_orders_store</b> / threshold：2025-03-31 观测值 20 低于固定阈值 45 <span class="muted">score=-25.0</span></li></ul>
+  </details>
+</article>
+
+<article class="anomaly">
+  <h3>2025-04-02 · visits ·
+      channel=channel_app</h3>
+  <span class="tag">medium</span>
+  <span class="muted">检测器：robust_z；规则：
+      visits_robust_z_app</span>
+  <div class="narrative">2025-04-02 的 visits （channel=channel_app）出现异常，命中检测器：robust_z。 2025-04-02 观测值 1700 的稳健 z-score 为 151.7604，超过阈值 3.5。 按 channel 归因，channel_app 的贡献额为 +904.00，占总变化 95.26%。</div>
+  <p class="muted">归因窗口：对照 2025-03-20 ~ 2025-03-26；异常 2025-03-27 ~ 2025-04-02</p>
+  <table><thead><tr><th>排名</th><th>维度值与归因维度</th><th>异常窗口</th><th>对照窗口</th><th>贡献额</th><th>贡献率</th><th>其他项</th></tr></thead><tbody><tr><td>1</td><td>channel=channel_app</td><td class="num">6500.0</td><td class="num">5596.0</td><td class="num">+904.000000</td><td class="num">95.26%</td><td>否</td></tr><tr><td>2</td><td>channel=channel_store</td><td class="num">2824.0</td><td class="num">2784.0</td><td class="num">+40.000000</td><td class="num">4.21%</td><td>否</td></tr><tr><td>3</td><td>channel=其他</td><td class="num">4205.0</td><td class="num">4200.0</td><td class="num">+5.000000</td><td class="num">0.53%</td><td>是</td></tr></tbody></table>
+  <details><summary>展开原始检测证据（1 条）</summary>
+    <ul class="evidence"><li><b>visits_robust_z_app</b> / robust_z：2025-04-02 观测值 1700 的稳健 z-score 为 151.7604，超过阈值 3.5 <span class="muted">score=151.760421</span></li></ul>
+  </details>
+</article>
+
+<article class="anomaly">
+  <h3>2025-04-04 · gmv ·
+      channel=channel_web</h3>
+  <span class="tag">medium</span>
+  <span class="muted">检测器：delta；规则：
+      gmv_day_over_day_web</span>
+  <div class="narrative">2025-04-04 的 gmv （channel=channel_web）出现异常，命中检测器：delta。 2025-04-04 较滞后 1 期上升 0.5385。 按 channel 归因，channel_web 的贡献额为 +900.00，占总变化 119.21%。</div>
+  <p class="muted">归因窗口：对照 2025-03-22 ~ 2025-03-28；异常 2025-03-29 ~ 2025-04-04</p>
+  <table><thead><tr><th>排名</th><th>维度值与归因维度</th><th>异常窗口</th><th>对照窗口</th><th>贡献额</th><th>贡献率</th><th>其他项</th></tr></thead><tbody><tr><td>1</td><td>channel=channel_web</td><td class="num">15000.0</td><td class="num">14100.0</td><td class="num">+900.000000</td><td class="num">119.21%</td><td>否</td></tr><tr><td>2</td><td>channel=channel_app</td><td class="num">10380.0</td><td class="num">10540.0</td><td class="num">-160.000000</td><td class="num">-21.19%</td><td>否</td></tr><tr><td>3</td><td>channel=其他</td><td class="num">7015.0</td><td class="num">7000.0</td><td class="num">+15.000000</td><td class="num">1.99%</td><td>是</td></tr></tbody></table>
+  <details><summary>展开原始检测证据（1 条）</summary>
+    <ul class="evidence"><li><b>gmv_day_over_day_web</b> / delta：2025-04-04 较滞后 1 期上升 0.5385 <span class="muted">score=0.538462</span></li></ul>
+  </details>
+</article>
+</section>
+  <section><h2>产物清单</h2><ul><li><span class="tag">report_json</span><span class="mono">output/golden-run/report.json</span></li><li><span class="tag">report_markdown</span><span class="mono">output/golden-run/report.md</span></li><li><span class="tag">report_html</span><span class="mono">output/golden-run/report.html</span></li><li><span class="tag">attribution_json</span><span class="mono">output/golden-run/attribution.json</span></li><li><span class="tag">rule_snapshot</span><span class="mono">output/golden-run/rules.snapshot.yaml</span></li></ul>
+    <p class="muted">本页样式与数据全部内联，无远程字体、脚本、样式或图片引用。</p>
+  </section>
+  <footer>漂移归因台 · 本地离线确定性分析 · 业务数据均为虚构 fixture</footer>
+</main>
+</body>
+</html>

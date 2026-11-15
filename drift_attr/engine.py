@@ -3,29 +3,37 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, TextIO
 
 from drift_attr.attribution import attribute_groups
 from drift_attr.config import AppConfig, load_config
 from drift_attr.dataset import Dataset, dataset_summary, load_dataset, resolve_path
 from drift_attr.detectors import get_detector
 from drift_attr.errors import DriftError, fail
-from drift_attr.html_report import report_to_html
+from drift_attr.html_report import write_html
 from drift_attr.normalize import group_events, make_event_id, make_group_id
 from drift_attr.report import (
-    attribution_document, build_report, display_path, report_to_markdown,
+    ChunkedTextWriter,
+    build_report,
+    display_path,
+    make_report_context,
+    write_attribution_json,
+    write_markdown,
+    write_report_json,
 )
 from drift_attr.schema import AnomalyEvent, AnomalyGroup, event_to_dict, item_to_dict
 from drift_attr.store import save_run
 from drift_attr.timeseries import BuildResult, build_series, series_summary
 
 RUN_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
+
+#: Temporary suffix used while an artifact is still being rendered.
+STAGING_SUFFIX = ".partial"
 
 
 @dataclass
@@ -55,11 +63,26 @@ class AnalysisResult:
     build: BuildResult
     events: list[AnomalyEvent]
     groups: list[AnomalyGroup]
-    report: dict[str, Any]
     run_id: str
     run_dir: Path
     database_path: Path
     artifacts: list[dict[str, str]]
+    # Lazy materialization: the full report dict is only rebuilt when a caller
+    # explicitly asks for ``result.report``; analyze() never loads it back.
+    _report_loader: Callable[[], dict[str, Any]] | None = field(
+        default=None, repr=False, compare=False
+    )
+    _materialized_report: dict[str, Any] | None = field(
+        default=None, repr=False, compare=False
+    )
+
+    @property
+    def report(self) -> dict[str, Any]:
+        if self._materialized_report is None:
+            if self._report_loader is None:
+                raise RuntimeError("report loader is not configured")
+            self._materialized_report = self._report_loader()
+        return self._materialized_report
 
 
 def validate_run_id(run_id: str) -> str:
@@ -140,30 +163,82 @@ def _artifact_manifest(run_dir: Path, base: Path) -> list[dict[str, str]]:
     ]
 
 
-def _sha256(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+def _open_chunked_writer(handle: TextIO) -> ChunkedTextWriter:
+    """Indirection point so tests can inject failures mid-render."""
+    return ChunkedTextWriter(handle)
+
+
+def _hash_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _write_rule_snapshot(writer: ChunkedTextWriter, rule_text: str) -> None:
+    block_size = 64 * 1024
+    for start in range(0, len(rule_text), block_size):
+        writer.write(rule_text[start : start + block_size])
 
 
 def _write_artifacts(
-    run_dir: Path, report: dict[str, Any], attribution: dict[str, Any],
-    rule_text: str, base: Path,
+    run_dir: Path, ctx: Any, rule_text: str, base: Path,
 ) -> list[dict[str, str]]:
+    """Render all artifacts through bounded buffers into staging files.
+
+    Every artifact is first written to ``<name>.partial`` and only renamed to
+    its final name once rendering finished and the on-disk hash matches the
+    streaming digest.  A failure at any point removes every staging/final file
+    created by this call, so truncated content can never be registered or
+    exposed as a successful artifact.
+    """
     run_dir.mkdir(parents=True, exist_ok=True)
-    payloads = [
-        ("report_json", "json", "report.json",
-         json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n"),
-        ("report_markdown", "markdown", "report.md", report_to_markdown(report)),
-        ("report_html", "html", "report.html", report_to_html(report)),
-        ("attribution_json", "json", "attribution.json",
-         json.dumps(attribution, ensure_ascii=False, indent=2, sort_keys=True) + "\n"),
-        ("rule_snapshot", "yaml", "rules.snapshot.yaml", rule_text),
+    spec = [
+        ("report_json", "json", "report.json", write_report_json),
+        ("report_markdown", "markdown", "report.md", write_markdown),
+        ("report_html", "html", "report.html", write_html),
+        ("attribution_json", "json", "attribution.json", write_attribution_json),
+        ("rule_snapshot", "yaml", "rules.snapshot.yaml", None),
     ]
+    final_names = [name for _kind, _fmt, name, _renderer in spec]
+    staged: list[tuple[Path, Path, str]] = []
     manifest: list[dict[str, str]] = []
-    for kind, fmt, name, content in payloads:
-        path = run_dir / name
-        path.write_text(content, encoding="utf-8")
-        manifest.append({"kind": kind, "format": fmt,
-                         "path": display_path(path, base), "sha256": _sha256(content)})
+    try:
+        for kind, fmt, name, renderer in spec:
+            staging = run_dir / (name + STAGING_SUFFIX)
+            with staging.open("w", encoding="utf-8", newline="") as handle:
+                writer = _open_chunked_writer(handle)
+                if renderer is None:
+                    _write_rule_snapshot(writer, rule_text)
+                else:
+                    renderer(writer, ctx)
+                writer.close()
+                digest_hex = writer.sha256_hex
+            staged.append((staging, run_dir / name, digest_hex))
+
+        expected = {final: digest for _staging, final, digest in staged}
+        for staging, final_path, _digest in staged:
+            staging.replace(final_path)
+        for kind, fmt, name, _renderer in spec:
+            final_path = run_dir / name
+            actual_digest = _hash_file(final_path)
+            if actual_digest != expected[final_path]:
+                raise DriftError(
+                    "E_ANALYSIS", "产物哈希校验失败", path=str(final_path)
+                )
+            manifest.append({
+                "kind": kind, "format": fmt,
+                "path": display_path(final_path, base), "sha256": actual_digest,
+            })
+    except (OSError, DriftError):
+        touched = set(final_names) | {name + STAGING_SUFFIX for name in final_names}
+        for name in touched:
+            try:
+                (run_dir / name).unlink()
+            except FileNotFoundError:
+                pass
+        raise
     return manifest
 
 
@@ -183,15 +258,18 @@ def analyze(
     run_dir = output_root / chosen_run
     database_path = output_root / config.output.database
     finished = iso_utc(now)
-    report = build_report(
-        run_id=chosen_run, config=config, dataset=dataset, build=build, groups=groups,
-        events=events, started_at=started, finished_at=finished, base_dir=base,
-        artifacts=_artifact_manifest(run_dir, base),
+    artifact_paths = _artifact_manifest(run_dir, base)
+    ctx = make_report_context(
+        run_id=chosen_run, config=config, dataset=dataset, build=build,
+        groups=groups, events=events, started_at=started, finished_at=finished,
+        base_dir=base, artifacts=artifact_paths,
     )
     try:
-        artifacts = _write_artifacts(
-            run_dir, report, attribution_document(report), config.text, base
-        )
+        artifacts = _write_artifacts(run_dir, ctx, config.text, base)
+    except DriftError:
+        # Hash-verification failures already carry the E_ANALYSIS code and the
+        # staging cleanup has run inside _write_artifacts.
+        raise
     except OSError as exc:
         raise DriftError("E_ANALYSIS", f"写入报告失败: {exc}", path=str(run_dir)) from exc
     attr_items = [item for group in groups for item in group.attribution_items]
@@ -212,8 +290,16 @@ def analyze(
         attribution_items=[item_to_dict(item) for item in attr_items],
         artifacts=artifacts,
     )
+
+    def _load_report() -> dict[str, Any]:
+        return build_report(
+            run_id=chosen_run, config=config, dataset=dataset, build=build,
+            groups=groups, events=events, started_at=started, finished_at=finished,
+            base_dir=base, artifacts=artifact_paths,
+        )
+
     return AnalysisResult(
         config=config, dataset=dataset, build=build, events=events, groups=groups,
-        report=report, run_id=chosen_run, run_dir=run_dir,
-        database_path=database_path, artifacts=artifacts,
+        run_id=chosen_run, run_dir=run_dir, database_path=database_path,
+        artifacts=artifacts, _report_loader=_load_report,
     )

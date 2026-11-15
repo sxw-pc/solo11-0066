@@ -1,0 +1,64 @@
+version: 1
+dataset:
+  path: fixtures/demo_metrics.csv
+  format: long
+  encoding: utf-8
+  duplicate_policy: warn
+  empty_value: error
+  date_field: date
+  metric_field: metric
+  dimension_name_field: dimension_name
+  dimension_value_field: dimension_value
+  value_field: value
+series:
+  granularity: day
+  aggregate: sum
+  fill_missing: zero
+  week_start: monday
+detection:
+  detectors:
+    - name: low_orders_store
+      type: threshold
+      metrics: [orders]
+      dimension_names: [channel]
+      dimension_values: [channel_store]
+      severity: high
+      direction: below
+      lower: 45
+    - name: gmv_day_over_day_web
+      type: delta
+      metrics: [gmv]
+      dimension_values: [channel_web]
+      severity: medium
+      comparison: previous
+      mode: relative
+      threshold: 0.25
+      direction: both
+    - name: visits_robust_z_app
+      type: robust_z
+      metrics: [visits]
+      dimension_values: [channel_app]
+      severity: medium
+      history: 21
+      threshold: 3.5
+      mad_zero: skip
+      direction: both
+    - name: sessions_level_shift_web
+      type: changepoint
+      metrics: [sessions]
+      dimension_values: [channel_web]
+      severity: high
+      pre_window: 7
+      post_window: 7
+      threshold: 4.0
+      min_scale: 1.0
+      direction: increase
+attribution:
+  dimensions: [channel]
+  top_n: 2
+  baseline_window: 7
+  comparison_window: 7
+  other_label: "其他"
+output:
+  directory: output
+  database: drift_attr.sqlite3

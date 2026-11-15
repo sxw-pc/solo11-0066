@@ -1,7 +1,16 @@
-"""Self-contained HTML report rendering with inline CSS and no remote assets."""
+"""Self-contained HTML report rendering with inline CSS and no remote assets.
+
+The streaming API (:func:`iter_html_parts` / :func:`write_html`) yields small
+fragments per anomaly group so a complete HTML string is never held in memory.
+The dict-based :func:`report_to_html` is retained for callers that already hold
+a materialized report (e.g. the CLI ``report`` command) and shares the exact
+same fragment builders, so both paths produce identical bytes.
+"""
 from __future__ import annotations
+
 import html
-from typing import Any
+from typing import Any, Iterator
+
 STYLE = """
 :root{--ink:#1f2933;--muted:#617080;--paper:#fbfaf7;--panel:#fff;--line:#dfe3e6;
 --accent:#1c6b5a;--accent-soft:#e7f2ee;--danger:#a33b2b;--danger-soft:#f8ece9}
@@ -32,12 +41,17 @@ ul.evidence{padding-left:20px}ul.evidence li{margin:3px 0}
 footer{color:var(--muted);font-size:.8rem;border-top:1px solid var(--line);padding-top:14px}
 @media(max-width:680px){th:nth-child(3),td:nth-child(3){display:none}}
 """
+
+
 def _e(value: object) -> str:
     return html.escape(str(value), quote=True)
+
+
 def _rate(value: float | None) -> str:
     return "n/a" if value is None else f"{value * 100:.2f}%"
-def _summary(report: dict[str, Any]) -> str:
-    summary = report["summary"]
+
+
+def _summary_cards(summary: dict[str, Any]) -> str:
     cards = [
         ("异常位置", summary["anomaly_count"]),
         ("原始事件", summary["raw_event_count"]),
@@ -48,12 +62,16 @@ def _summary(report: dict[str, Any]) -> str:
         f'<div class="card"><b>{_e(value)}</b><span>{_e(label)}</span></div>'
         for label, value in cards
     ) + "</div>"
-def _artifact_list(report: dict[str, Any]) -> str:
+
+
+def _artifact_list(artifacts: list[dict[str, Any]]) -> str:
     return "<ul>" + "".join(
         f'<li><span class="tag">{_e(item["kind"])}</span>'
         f'<span class="mono">{_e(item["path"])}</span></li>'
-        for item in report["artifacts"]
+        for item in artifacts
     ) + "</ul>"
+
+
 def _attribution_table(group: dict[str, Any]) -> str:
     rows: list[str] = []
     for dimension, items in group["attribution"].items():
@@ -78,6 +96,8 @@ def _attribution_table(group: dict[str, Any]) -> str:
         + "".join(rows)
         + "</tbody></table>"
     )
+
+
 def _group_section(group: dict[str, Any]) -> str:
     evidence = "".join(
         f"<li><b>{_e(event['rule_name'])}</b> / {_e(event['detector'])}："
@@ -107,11 +127,9 @@ def _group_section(group: dict[str, Any]) -> str:
   </details>
 </article>
 """
-def report_to_html(report: dict[str, Any]) -> str:
-    run = report["run"]
-    groups = "".join(_group_section(group) for group in report["anomalies"])
-    if not groups:
-        groups = '<p class="muted">本次运行没有检测到异常。</p>'
+
+
+def _head_and_header(run: dict[str, Any], summary: dict[str, Any]) -> str:
     return f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -129,9 +147,12 @@ def report_to_html(report: dict[str, Any]) -> str:
   <p>开始：{_e(run['started_at'])} · 结束：{_e(run['finished_at'])}</p>
 </header>
 <main>
-  <section><h2>运行概要</h2>{_summary(report)}</section>
-  <section><h2>异常与维度归因</h2>{groups}</section>
-  <section><h2>产物清单</h2>{_artifact_list(report)}
+  <section><h2>运行概要</h2>{_summary_cards(summary)}</section>
+  <section><h2>异常与维度归因</h2>"""
+
+
+_FOOTER_TEMPLATE = """</section>
+  <section><h2>产物清单</h2>{artifacts}
     <p class="muted">本页样式与数据全部内联，无远程字体、脚本、样式或图片引用。</p>
   </section>
   <footer>漂移归因台 · 本地离线确定性分析 · 业务数据均为虚构 fixture</footer>
@@ -139,3 +160,42 @@ def report_to_html(report: dict[str, Any]) -> str:
 </body>
 </html>
 """
+
+
+def iter_html_parts(
+    run: dict[str, Any],
+    summary: dict[str, Any],
+    artifacts: list[dict[str, Any]],
+    group_views: Iterator[dict[str, Any]],
+) -> Iterator[str]:
+    """Yield HTML fragments; each fragment covers at most one anomaly group."""
+    yield _head_and_header(run, summary)
+    saw_group = False
+    for group in group_views:
+        saw_group = True
+        yield _group_section(group)
+    if not saw_group:
+        yield '<p class="muted">本次运行没有检测到异常。</p>'
+    yield _FOOTER_TEMPLATE.format(artifacts=_artifact_list(artifacts))
+
+
+def write_html(writer: Any, ctx: Any) -> None:
+    """Stream the HTML report through a :class:`ChunkedTextWriter`."""
+    from drift_attr.report import report_header
+
+    header = report_header(ctx)
+    for fragment in iter_html_parts(
+        header["run"], header["summary"], ctx.artifacts, ctx.group_views()
+    ):
+        writer.write(fragment)
+
+
+def report_to_html(report: dict[str, Any]) -> str:
+    return "".join(
+        iter_html_parts(
+            report["run"],
+            report["summary"],
+            report["artifacts"],
+            iter(report["anomalies"]),
+        )
+    )

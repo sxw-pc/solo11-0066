@@ -1,0 +1,649 @@
+{
+  "anomalies": [
+    {
+      "attribution": {
+        "channel": [
+          {
+            "attribution_dimension": "channel",
+            "baseline_value": 4896.0,
+            "contribution": 202.0,
+            "contribution_rate": 0.834711,
+            "current_value": 5098.0,
+            "dimension_value": "channel_web",
+            "event_id": "evt_d80f91501e01bcdfcb52",
+            "explanation": "channel=channel_web 在异常窗口为 5098.00，对照窗口为 4896.00，贡献额 +202.00，贡献率 83.47%。",
+            "formula": "current 5098.000000 - baseline 4896.000000 = contribution +202.000000; rate=0.834711",
+            "group_id": "grp_55bf9ef54cfa0e9b3d1c",
+            "is_other": false,
+            "item_id": "attr_9b97b335a4f747dce361",
+            "rank": 1
+          },
+          {
+            "attribution_dimension": "channel",
+            "baseline_value": 3632.0,
+            "contribution": 20.0,
+            "contribution_rate": 0.082645,
+            "current_value": 3652.0,
+            "dimension_value": "channel_app",
+            "event_id": "evt_d80f91501e01bcdfcb52",
+            "explanation": "channel=channel_app 在异常窗口为 3652.00，对照窗口为 3632.00，贡献额 +20.00，贡献率 8.26%。",
+            "formula": "current 3652.000000 - baseline 3632.000000 = contribution +20.000000; rate=0.082645",
+            "group_id": "grp_55bf9ef54cfa0e9b3d1c",
+            "is_other": false,
+            "item_id": "attr_b620d5da61b0d7b18f5c",
+            "rank": 2
+          },
+          {
+            "attribution_dimension": "channel",
+            "baseline_value": 2088.0,
+            "contribution": 20.0,
+            "contribution_rate": 0.082645,
+            "current_value": 2108.0,
+            "dimension_value": "其他",
+            "event_id": "evt_d80f91501e01bcdfcb52",
+            "explanation": "channel 的其他维度合计 在异常窗口为 2108.00，对照窗口为 2088.00，贡献额 +20.00，贡献率 8.26%。",
+            "formula": "current 2108.000000 - baseline 2088.000000 = contribution +20.000000; rate=0.082645",
+            "group_id": "grp_55bf9ef54cfa0e9b3d1c",
+            "is_other": true,
+            "item_id": "attr_4b57c6f2912cc264f72c",
+            "rank": 3
+          }
+        ]
+      },
+      "attribution_windows": {
+        "baseline_end": "2025-03-20",
+        "baseline_periods": 7,
+        "baseline_start": "2025-03-14",
+        "comparison_end": "2025-03-27",
+        "comparison_periods": 7,
+        "comparison_start": "2025-03-21"
+      },
+      "date": "2025-03-27",
+      "detectors": [
+        "changepoint"
+      ],
+      "dimension_name": "channel",
+      "dimension_value": "channel_web",
+      "event_count": 1,
+      "group_id": "grp_55bf9ef54cfa0e9b3d1c",
+      "metric": "sessions",
+      "narrative": "2025-03-27 的 sessions （channel=channel_web）出现异常，命中检测器：changepoint。 2025-03-27 起后窗均值 898.857 较前窗均值 701.143 变化，突变分数 35.0558。 按 channel 归因，channel_web 的贡献额为 +202.00，占总变化 83.47%。",
+      "raw_events": [
+        {
+          "baseline": 701.142857,
+          "date": "2025-03-27",
+          "detector": "changepoint",
+          "dimension_name": "channel",
+          "dimension_value": "channel_web",
+          "event_id": "evt_d80f91501e01bcdfcb52",
+          "evidence": {
+            "formula": "(post_mean 898.857 - pre_mean 701.143) / max(pre_stdev, 1) = 35.055766",
+            "post_mean": 898.8571428571429,
+            "post_window": 7,
+            "pre_mean": 701.1428571428571,
+            "pre_window": 7,
+            "scale": 5.639993245521116,
+            "summary": "2025-03-27 起后窗均值 898.857 较前窗均值 701.143 变化，突变分数 35.0558"
+          },
+          "group_id": "grp_55bf9ef54cfa0e9b3d1c",
+          "metric": "sessions",
+          "observed": 898.857143,
+          "rule_name": "sessions_level_shift_web",
+          "run_id": "golden-run",
+          "score": 35.055766,
+          "severity": "high",
+          "window_end": "2025-04-02",
+          "window_start": "2025-03-27"
+        }
+      ],
+      "rule_names": [
+        "sessions_level_shift_web"
+      ],
+      "severity": "high",
+      "window_end": "2025-04-02",
+      "window_start": "2025-03-27"
+    },
+    {
+      "attribution": {
+        "channel": [
+          {
+            "attribution_dimension": "channel",
+            "baseline_value": 486.0,
+            "contribution": -46.0,
+            "contribution_rate": 0.867925,
+            "current_value": 440.0,
+            "dimension_value": "channel_store",
+            "event_id": "evt_3a1480b9390e7381a4e4",
+            "explanation": "channel=channel_store 在异常窗口为 440.00，对照窗口为 486.00，贡献额 -46.00，贡献率 86.79%。",
+            "formula": "current 440.000000 - baseline 486.000000 = contribution -46.000000; rate=0.867925",
+            "group_id": "grp_76acd90b0196247edda5",
+            "is_other": false,
+            "item_id": "attr_5a20d64a905c3455f24c",
+            "rank": 1
+          },
+          {
+            "attribution_dimension": "channel",
+            "baseline_value": 842.0,
+            "contribution": -8.0,
+            "contribution_rate": 0.150943,
+            "current_value": 834.0,
+            "dimension_value": "channel_web",
+            "event_id": "evt_3a1480b9390e7381a4e4",
+            "explanation": "channel=channel_web 在异常窗口为 834.00，对照窗口为 842.00，贡献额 -8.00，贡献率 15.09%。",
+            "formula": "current 834.000000 - baseline 842.000000 = contribution -8.000000; rate=0.150943",
+            "group_id": "grp_76acd90b0196247edda5",
+            "is_other": false,
+            "item_id": "attr_2601d537edf413f07a39",
+            "rank": 2
+          },
+          {
+            "attribution_dimension": "channel",
+            "baseline_value": 630.0,
+            "contribution": 1.0,
+            "contribution_rate": -0.018868,
+            "current_value": 631.0,
+            "dimension_value": "其他",
+            "event_id": "evt_3a1480b9390e7381a4e4",
+            "explanation": "channel 的其他维度合计 在异常窗口为 631.00，对照窗口为 630.00，贡献额 +1.00，贡献率 -1.89%。",
+            "formula": "current 631.000000 - baseline 630.000000 = contribution +1.000000; rate=-0.018868",
+            "group_id": "grp_76acd90b0196247edda5",
+            "is_other": true,
+            "item_id": "attr_a16bd40a052de1a0d816",
+            "rank": 3
+          }
+        ]
+      },
+      "attribution_windows": {
+        "baseline_end": "2025-03-24",
+        "baseline_periods": 7,
+        "baseline_start": "2025-03-18",
+        "comparison_end": "2025-03-31",
+        "comparison_periods": 7,
+        "comparison_start": "2025-03-25"
+      },
+      "date": "2025-03-31",
+      "detectors": [
+        "threshold"
+      ],
+      "dimension_name": "channel",
+      "dimension_value": "channel_store",
+      "event_count": 1,
+      "group_id": "grp_76acd90b0196247edda5",
+      "metric": "orders",
+      "narrative": "2025-03-31 的 orders （channel=channel_store）出现异常，命中检测器：threshold。 2025-03-31 观测值 20 低于固定阈值 45。 按 channel 归因，channel_store 的贡献额为 -46.00，占总变化 86.79%。",
+      "raw_events": [
+        {
+          "baseline": 45.0,
+          "date": "2025-03-31",
+          "detector": "threshold",
+          "dimension_name": "channel",
+          "dimension_value": "channel_store",
+          "event_id": "evt_3a1480b9390e7381a4e4",
+          "evidence": {
+            "boundary": 45.0,
+            "direction": "below",
+            "formula": "observed=20, boundary=45, gap=-25",
+            "gap": -25.0,
+            "summary": "2025-03-31 观测值 20 低于固定阈值 45"
+          },
+          "group_id": "grp_76acd90b0196247edda5",
+          "metric": "orders",
+          "observed": 20.0,
+          "rule_name": "low_orders_store",
+          "run_id": "golden-run",
+          "score": -25.0,
+          "severity": "high",
+          "window_end": "2025-03-31",
+          "window_start": "2025-03-31"
+        }
+      ],
+      "rule_names": [
+        "low_orders_store"
+      ],
+      "severity": "high",
+      "window_end": "2025-03-31",
+      "window_start": "2025-03-31"
+    },
+    {
+      "attribution": {
+        "channel": [
+          {
+            "attribution_dimension": "channel",
+            "baseline_value": 5596.0,
+            "contribution": 904.0,
+            "contribution_rate": 0.952582,
+            "current_value": 6500.0,
+            "dimension_value": "channel_app",
+            "event_id": "evt_9b1752bfb0e2237075fc",
+            "explanation": "channel=channel_app 在异常窗口为 6500.00，对照窗口为 5596.00，贡献额 +904.00，贡献率 95.26%。",
+            "formula": "current 6500.000000 - baseline 5596.000000 = contribution +904.000000; rate=0.952582",
+            "group_id": "grp_6773201c48eec556a562",
+            "is_other": false,
+            "item_id": "attr_aadf6ee47518a5194789",
+            "rank": 1
+          },
+          {
+            "attribution_dimension": "channel",
+            "baseline_value": 2784.0,
+            "contribution": 40.0,
+            "contribution_rate": 0.04215,
+            "current_value": 2824.0,
+            "dimension_value": "channel_store",
+            "event_id": "evt_9b1752bfb0e2237075fc",
+            "explanation": "channel=channel_store 在异常窗口为 2824.00，对照窗口为 2784.00，贡献额 +40.00，贡献率 4.21%。",
+            "formula": "current 2824.000000 - baseline 2784.000000 = contribution +40.000000; rate=0.042150",
+            "group_id": "grp_6773201c48eec556a562",
+            "is_other": false,
+            "item_id": "attr_f68e2d3071254a080746",
+            "rank": 2
+          },
+          {
+            "attribution_dimension": "channel",
+            "baseline_value": 4200.0,
+            "contribution": 5.0,
+            "contribution_rate": 0.005269,
+            "current_value": 4205.0,
+            "dimension_value": "其他",
+            "event_id": "evt_9b1752bfb0e2237075fc",
+            "explanation": "channel 的其他维度合计 在异常窗口为 4205.00，对照窗口为 4200.00，贡献额 +5.00，贡献率 0.53%。",
+            "formula": "current 4205.000000 - baseline 4200.000000 = contribution +5.000000; rate=0.005269",
+            "group_id": "grp_6773201c48eec556a562",
+            "is_other": true,
+            "item_id": "attr_2b9b232662831cf7ac84",
+            "rank": 3
+          }
+        ]
+      },
+      "attribution_windows": {
+        "baseline_end": "2025-03-26",
+        "baseline_periods": 7,
+        "baseline_start": "2025-03-20",
+        "comparison_end": "2025-04-02",
+        "comparison_periods": 7,
+        "comparison_start": "2025-03-27"
+      },
+      "date": "2025-04-02",
+      "detectors": [
+        "robust_z"
+      ],
+      "dimension_name": "channel",
+      "dimension_value": "channel_app",
+      "event_count": 1,
+      "group_id": "grp_6773201c48eec556a562",
+      "metric": "visits",
+      "narrative": "2025-04-02 的 visits （channel=channel_app）出现异常，命中检测器：robust_z。 2025-04-02 观测值 1700 的稳健 z-score 为 151.7604，超过阈值 3.5。 按 channel 归因，channel_app 的贡献额为 +904.00，占总变化 95.26%。",
+      "raw_events": [
+        {
+          "baseline": 800.0,
+          "date": "2025-04-02",
+          "detector": "robust_z",
+          "dimension_name": "channel",
+          "dimension_value": "channel_app",
+          "event_id": "evt_9b1752bfb0e2237075fc",
+          "evidence": {
+            "formula": "(1700 - 800) / 5.9304",
+            "history": 21,
+            "mad": 4.0,
+            "mad_zero": "skip",
+            "mad_zero_handled": false,
+            "median": 800.0,
+            "scale": 5.9304,
+            "summary": "2025-04-02 观测值 1700 的稳健 z-score 为 151.7604，超过阈值 3.5"
+          },
+          "group_id": "grp_6773201c48eec556a562",
+          "metric": "visits",
+          "observed": 1700.0,
+          "rule_name": "visits_robust_z_app",
+          "run_id": "golden-run",
+          "score": 151.760421,
+          "severity": "medium",
+          "window_end": "2025-04-02",
+          "window_start": "2025-04-02"
+        }
+      ],
+      "rule_names": [
+        "visits_robust_z_app"
+      ],
+      "severity": "medium",
+      "window_end": "2025-04-02",
+      "window_start": "2025-04-02"
+    },
+    {
+      "attribution": {
+        "channel": [
+          {
+            "attribution_dimension": "channel",
+            "baseline_value": 14100.0,
+            "contribution": 900.0,
+            "contribution_rate": 1.192053,
+            "current_value": 15000.0,
+            "dimension_value": "channel_web",
+            "event_id": "evt_71b5250272b0bd16d57a",
+            "explanation": "channel=channel_web 在异常窗口为 15000.00，对照窗口为 14100.00，贡献额 +900.00，贡献率 119.21%。",
+            "formula": "current 15000.000000 - baseline 14100.000000 = contribution +900.000000; rate=1.192053",
+            "group_id": "grp_5a2bdc06c3048af00d13",
+            "is_other": false,
+            "item_id": "attr_1ca6f69376b84e984dc2",
+            "rank": 1
+          },
+          {
+            "attribution_dimension": "channel",
+            "baseline_value": 10540.0,
+            "contribution": -160.0,
+            "contribution_rate": -0.211921,
+            "current_value": 10380.0,
+            "dimension_value": "channel_app",
+            "event_id": "evt_71b5250272b0bd16d57a",
+            "explanation": "channel=channel_app 在异常窗口为 10380.00，对照窗口为 10540.00，贡献额 -160.00，贡献率 -21.19%。",
+            "formula": "current 10380.000000 - baseline 10540.000000 = contribution -160.000000; rate=-0.211921",
+            "group_id": "grp_5a2bdc06c3048af00d13",
+            "is_other": false,
+            "item_id": "attr_8a9ed4e88ff4ec31834f",
+            "rank": 2
+          },
+          {
+            "attribution_dimension": "channel",
+            "baseline_value": 7000.0,
+            "contribution": 15.0,
+            "contribution_rate": 0.019868,
+            "current_value": 7015.0,
+            "dimension_value": "其他",
+            "event_id": "evt_71b5250272b0bd16d57a",
+            "explanation": "channel 的其他维度合计 在异常窗口为 7015.00，对照窗口为 7000.00，贡献额 +15.00，贡献率 1.99%。",
+            "formula": "current 7015.000000 - baseline 7000.000000 = contribution +15.000000; rate=0.019868",
+            "group_id": "grp_5a2bdc06c3048af00d13",
+            "is_other": true,
+            "item_id": "attr_70ce055fc24fa35e25d8",
+            "rank": 3
+          }
+        ]
+      },
+      "attribution_windows": {
+        "baseline_end": "2025-03-28",
+        "baseline_periods": 7,
+        "baseline_start": "2025-03-22",
+        "comparison_end": "2025-04-04",
+        "comparison_periods": 7,
+        "comparison_start": "2025-03-29"
+      },
+      "date": "2025-04-04",
+      "detectors": [
+        "delta"
+      ],
+      "dimension_name": "channel",
+      "dimension_value": "channel_web",
+      "event_count": 1,
+      "group_id": "grp_5a2bdc06c3048af00d13",
+      "metric": "gmv",
+      "narrative": "2025-04-04 的 gmv （channel=channel_web）出现异常，命中检测器：delta。 2025-04-04 较滞后 1 期上升 0.5385。 按 channel 归因，channel_web 的贡献额为 +900.00，占总变化 119.21%。",
+      "raw_events": [
+        {
+          "baseline": 1950.0,
+          "date": "2025-04-04",
+          "detector": "delta",
+          "dimension_name": "channel",
+          "dimension_value": "channel_web",
+          "event_id": "evt_71b5250272b0bd16d57a",
+          "evidence": {
+            "comparison": "previous",
+            "formula": "(3000 - 1950) / |1950| = 0.538462",
+            "lag": 1,
+            "metric": "change_rate",
+            "mode": "relative",
+            "summary": "2025-04-04 较滞后 1 期上升 0.5385"
+          },
+          "group_id": "grp_5a2bdc06c3048af00d13",
+          "metric": "gmv",
+          "observed": 3000.0,
+          "rule_name": "gmv_day_over_day_web",
+          "run_id": "golden-run",
+          "score": 0.538462,
+          "severity": "medium",
+          "window_end": "2025-04-04",
+          "window_start": "2025-04-04"
+        }
+      ],
+      "rule_names": [
+        "gmv_day_over_day_web"
+      ],
+      "severity": "medium",
+      "window_end": "2025-04-04",
+      "window_start": "2025-04-04"
+    }
+  ],
+  "artifacts": [
+    {
+      "format": "json",
+      "kind": "report_json",
+      "path": "output/golden-run/report.json"
+    },
+    {
+      "format": "markdown",
+      "kind": "report_markdown",
+      "path": "output/golden-run/report.md"
+    },
+    {
+      "format": "html",
+      "kind": "report_html",
+      "path": "output/golden-run/report.html"
+    },
+    {
+      "format": "json",
+      "kind": "attribution_json",
+      "path": "output/golden-run/attribution.json"
+    },
+    {
+      "format": "yaml",
+      "kind": "rule_snapshot",
+      "path": "output/golden-run/rules.snapshot.yaml"
+    }
+  ],
+  "attribution_policy": {
+    "baseline_window": 7,
+    "comparison_window": 7,
+    "dimensions": [
+      "channel"
+    ],
+    "formula": "contribution = comparison_sum - baseline_sum; rate = contribution / total_change",
+    "other_label": "其他",
+    "top_n": 2
+  },
+  "dataset": {
+    "dimension_names": [
+      "channel"
+    ],
+    "fingerprint": "9df9f320873b52ae7287f4b86c59095a8c5c8c663ffa6263c2df73fa2d7951ea",
+    "format": "long",
+    "max_value": 3000.0,
+    "min_value": 20.0,
+    "path": "fixtures/demo_metrics.csv",
+    "row_count": 420,
+    "warnings": []
+  },
+  "rules": [
+    {
+      "metrics": [
+        "orders"
+      ],
+      "name": "low_orders_store",
+      "params": {
+        "direction": "below",
+        "lower": 45.0,
+        "upper": null
+      },
+      "severity": "high",
+      "type": "threshold"
+    },
+    {
+      "metrics": [
+        "gmv"
+      ],
+      "name": "gmv_day_over_day_web",
+      "params": {
+        "comparison": "previous",
+        "direction": "both",
+        "lag": 1,
+        "mode": "relative",
+        "threshold": 0.25
+      },
+      "severity": "medium",
+      "type": "delta"
+    },
+    {
+      "metrics": [
+        "visits"
+      ],
+      "name": "visits_robust_z_app",
+      "params": {
+        "direction": "both",
+        "floor_scale": 1.0,
+        "history": 21,
+        "mad_zero": "skip",
+        "threshold": 3.5
+      },
+      "severity": "medium",
+      "type": "robust_z"
+    },
+    {
+      "metrics": [
+        "sessions"
+      ],
+      "name": "sessions_level_shift_web",
+      "params": {
+        "direction": "increase",
+        "min_scale": 1.0,
+        "post_window": 7,
+        "pre_window": 7,
+        "threshold": 4.0
+      },
+      "severity": "high",
+      "type": "changepoint"
+    }
+  ],
+  "run": {
+    "config_fingerprint": "466af8d905d7afd9f0c7d72c8e1f05c31e86d85ea70e56cfe0f04075bc47b55e",
+    "config_path": "fixtures/rules.yaml",
+    "dataset_fingerprint": "9df9f320873b52ae7287f4b86c59095a8c5c8c663ffa6263c2df73fa2d7951ea",
+    "dataset_path": "fixtures/demo_metrics.csv",
+    "finished_at": "2026-01-02T03:04:05Z",
+    "rule_fingerprint": "466af8d905d7afd9f0c7d72c8e1f05c31e86d85ea70e56cfe0f04075bc47b55e",
+    "run_id": "golden-run",
+    "started_at": "2026-01-02T03:04:05Z",
+    "status": "success"
+  },
+  "schema_version": "1.0",
+  "series": {
+    "aggregate": "sum",
+    "fill_missing": "zero",
+    "granularity": "day",
+    "imputed_points": 0,
+    "point_count": 420,
+    "series": [
+      {
+        "dimension_name": "channel",
+        "dimension_value": "channel_app",
+        "imputed": 0,
+        "metric": "gmv",
+        "points": 35
+      },
+      {
+        "dimension_name": "channel",
+        "dimension_value": "channel_store",
+        "imputed": 0,
+        "metric": "gmv",
+        "points": 35
+      },
+      {
+        "dimension_name": "channel",
+        "dimension_value": "channel_web",
+        "imputed": 0,
+        "metric": "gmv",
+        "points": 35
+      },
+      {
+        "dimension_name": "channel",
+        "dimension_value": "channel_app",
+        "imputed": 0,
+        "metric": "orders",
+        "points": 35
+      },
+      {
+        "dimension_name": "channel",
+        "dimension_value": "channel_store",
+        "imputed": 0,
+        "metric": "orders",
+        "points": 35
+      },
+      {
+        "dimension_name": "channel",
+        "dimension_value": "channel_web",
+        "imputed": 0,
+        "metric": "orders",
+        "points": 35
+      },
+      {
+        "dimension_name": "channel",
+        "dimension_value": "channel_app",
+        "imputed": 0,
+        "metric": "sessions",
+        "points": 35
+      },
+      {
+        "dimension_name": "channel",
+        "dimension_value": "channel_store",
+        "imputed": 0,
+        "metric": "sessions",
+        "points": 35
+      },
+      {
+        "dimension_name": "channel",
+        "dimension_value": "channel_web",
+        "imputed": 0,
+        "metric": "sessions",
+        "points": 35
+      },
+      {
+        "dimension_name": "channel",
+        "dimension_value": "channel_app",
+        "imputed": 0,
+        "metric": "visits",
+        "points": 35
+      },
+      {
+        "dimension_name": "channel",
+        "dimension_value": "channel_store",
+        "imputed": 0,
+        "metric": "visits",
+        "points": 35
+      },
+      {
+        "dimension_name": "channel",
+        "dimension_value": "channel_web",
+        "imputed": 0,
+        "metric": "visits",
+        "points": 35
+      }
+    ],
+    "series_count": 12,
+    "timeline_end": "2025-04-04",
+    "timeline_start": "2025-03-01",
+    "warnings": []
+  },
+  "summary": {
+    "anomaly_count": 4,
+    "attribution_item_count": 12,
+    "detector_counts": {
+      "changepoint": 1,
+      "delta": 1,
+      "robust_z": 1,
+      "threshold": 1
+    },
+    "raw_event_count": 4,
+    "severity_counts": {
+      "critical": 0,
+      "high": 2,
+      "low": 0,
+      "medium": 2
+    }
+  }
+}
